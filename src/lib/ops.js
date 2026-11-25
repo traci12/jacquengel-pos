@@ -189,6 +189,39 @@ export function saveProduct({ product, data, session }) {
   return batch.commit()
 }
 
+/** Adds many products at once (each with the same starting stock). */
+export function importProducts({ items, stock, session }) {
+  const batch = writeBatch(db)
+  const qty = Math.max(0, parseInt(stock, 10) || 0)
+  for (const p of items) {
+    const ref = doc(collection(db, 'products'))
+    batch.set(ref, {
+      name: p.name,
+      nameLower: p.name.toLowerCase(),
+      category: p.category,
+      price: r2(p.price),
+      cost: r2(p.cost),
+      lowStock: p.lowStock,
+      unit: p.unit,
+      barcode: '',
+      stock: qty,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    })
+    if (qty) {
+      batch.set(doc(collection(db, 'stockMoves')), {
+        productId: ref.id,
+        name: p.name,
+        delta: qty,
+        reason: 'initial',
+        ...who(session),
+        createdAt: serverTimestamp(),
+      })
+    }
+  }
+  return batch.commit()
+}
+
 export function changeStock({ product, delta, reason, newCost, note, session }) {
   const batch = writeBatch(db)
   const update = { stock: increment(delta), updatedAt: serverTimestamp() }

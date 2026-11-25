@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react'
 import { collection, deleteDoc, doc, limit, orderBy, query, where } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useLive, useSession } from '../lib/data'
-import { changeStock, saveProduct } from '../lib/ops'
+import { changeStock, importProducts, saveProduct } from '../lib/ops'
+import { STARTER_PRODUCTS } from '../lib/starterProducts'
 import { CATEGORY_SUGGESTIONS, fmtDateTime, peso, r2 } from '../lib/format'
 import { Badge, Button, Empty, Field, Icon, Input, Modal, SearchBox, cx, useConfirm, useToast } from '../components/ui'
 
@@ -14,6 +15,7 @@ export default function Inventory({ products }) {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all')
   const [editing, setEditing] = useState(null) // product | 'new' | null
+  const [importing, setImporting] = useState(false)
 
   const counts = useMemo(
     () => ({
@@ -77,7 +79,16 @@ export default function Inventory({ products }) {
 
       {list.length === 0 ? (
         <Empty title="No products yet">
-          {isOwner ? 'Tap “Add product” to start your inventory.' : 'The owner hasn’t added products yet.'}
+          {isOwner ? (
+            <div className="space-y-3">
+              <p>Add your products one by one, or start with popular snacks and soft drinks.</p>
+              <Button variant="secondary" onClick={() => setImporting(true)}>
+                <Icon name="box" size={18} /> Load starter products
+              </Button>
+            </div>
+          ) : (
+            'The owner hasn’t added products yet.'
+          )}
         </Empty>
       ) : shown.length === 0 ? (
         <Empty icon="search" title="Nothing here" />
@@ -112,6 +123,14 @@ export default function Inventory({ products }) {
           </Button>
         </div>
       )}
+
+      {isOwner && list.length > 0 && (
+        <button onClick={() => setImporting(true)} className="w-full py-2 text-center text-sm font-medium text-brand-600">
+          + Add from starter product list
+        </button>
+      )}
+
+      {importing && <StarterImport existing={list} onClose={() => setImporting(false)} />}
 
       {editing && (
         <ProductEditor
@@ -370,5 +389,99 @@ function StockHistory({ productId }) {
         ))}
       </div>
     </div>
+  )
+}
+
+function StarterImport({ existing, onClose }) {
+  const session = useSession()
+  const toast = useToast()
+  const have = useMemo(() => new Set(existing.map((p) => p.name.toLowerCase())), [existing])
+  const available = STARTER_PRODUCTS.filter((p) => !have.has(p.name.toLowerCase()))
+  const [picked, setPicked] = useState(() => new Set(available.map((p) => p.name)))
+  const [stock, setStock] = useState('0')
+  const groups = useMemo(() => {
+    const m = new Map()
+    for (const p of available) m.set(p.category, [...(m.get(p.category) || []), p])
+    return [...m.entries()]
+  }, [available])
+
+  const toggle = (names, on) =>
+    setPicked((s) => {
+      const n = new Set(s)
+      names.forEach((x) => (on ? n.add(x) : n.delete(x)))
+      return n
+    })
+
+  const submit = () => {
+    const items = available.filter((p) => picked.has(p.name))
+    if (!items.length) return
+    importProducts({ items, stock, session }).catch((err) => toast(`Import failed: ${err.code || err.message}`, 'error'))
+    toast(`${items.length} products added`)
+    onClose()
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Starter products"
+      footer={
+        available.length ? (
+          <div className="space-y-2 pb-2">
+            <Field label="Starting stock for each" hint="Leave 0 and use Restock / Stock count later, or set a number to start selling right away.">
+              <Input type="number" inputMode="numeric" min="0" value={stock} onChange={(e) => setStock(e.target.value)} />
+            </Field>
+            <Button size="lg" className="w-full" disabled={!picked.size} onClick={submit}>
+              Add {picked.size} product{picked.size === 1 ? '' : 's'}
+            </Button>
+          </div>
+        ) : null
+      }
+    >
+      {available.length === 0 ? (
+        <p className="text-brand-900/70">All starter products are already in your inventory.</p>
+      ) : (
+        <>
+          <p className="mb-3 text-sm text-brand-900/70">
+            Popular Pinoy snacks and drinks with typical 2026 sari-sari prices. Untick what you don’t sell. You can edit
+            any price afterwards.
+          </p>
+          {groups.map(([cat, items]) => {
+            const all = items.every((p) => picked.has(p.name))
+            return (
+              <div key={cat} className="mb-4">
+                <div className="mb-1 flex items-center justify-between">
+                  <p className="font-semibold text-brand-900">{cat}</p>
+                  <button
+                    className="text-sm font-medium text-brand-600"
+                    onClick={() => toggle(items.map((p) => p.name), !all)}
+                  >
+                    {all ? 'Untick all' : 'Tick all'}
+                  </button>
+                </div>
+                <div className="divide-y divide-brand-100 rounded-xl ring-1 ring-brand-100">
+                  {items.map((p) => (
+                    <label key={p.name} className="flex cursor-pointer items-center gap-3 px-3 py-2">
+                      <input
+                        type="checkbox"
+                        className="h-5 w-5 accent-brand-700"
+                        checked={picked.has(p.name)}
+                        onChange={(e) => toggle([p.name], e.target.checked)}
+                      />
+                      <span className="min-w-0 flex-1 truncate text-sm">{p.name}</span>
+                      <span className="text-right text-xs text-brand-900/60">
+                        <b className="text-sm text-brand-900">{peso(p.price)}</b>
+                        <br />
+                        cost {peso(p.cost)}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </>
+      )}
+    </Modal>
   )
 }
