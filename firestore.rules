@@ -1,0 +1,84 @@
+rules_version = '2';
+
+// JacqueNgel POS — access rules
+//   owner   : full access
+//   cashier : sell, record utang payments, add customers, view stock
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function me() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function isStaff() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && me().active == true;
+    }
+    function isOwner() { return isStaff() && me().role == 'owner'; }
+    function changedOnly(keys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
+    }
+    // True only during the one-time store setup batch.
+    function bootstrapping() {
+      return signedIn()
+        && !exists(/databases/$(database)/documents/meta/setup)
+        && getAfter(/databases/$(database)/documents/meta/setup).data.ownerUid == request.auth.uid;
+    }
+
+    match /meta/setup {
+      allow read: if true;
+      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    match /users/{uid} {
+      allow read: if (signedIn() && request.auth.uid == uid) || isOwner();
+      allow create: if isOwner()
+        || (request.auth.uid == uid && request.resource.data.role == 'owner' && bootstrapping());
+      allow update: if isOwner();
+      allow delete: if false;
+    }
+
+    match /settings/{id} {
+      allow read: if isStaff();
+      allow write: if isOwner() || bootstrapping();
+    }
+
+    match /products/{id} {
+      allow read: if isStaff();
+      allow create, delete: if isOwner();
+      // Cashiers may only deduct stock (when selling).
+      allow update: if isOwner()
+        || (isStaff() && changedOnly(['stock', 'updatedAt'])
+            && request.resource.data.stock < resource.data.stock);
+    }
+
+    match /sales/{id} {
+      allow read: if isStaff();
+      allow create: if isStaff()
+        && request.resource.data.cashierUid == request.auth.uid
+        && request.resource.data.total is number
+        && request.resource.data.voided == false;
+      allow update: if isOwner();   // voiding
+      allow delete: if false;
+    }
+
+    match /customers/{id} {
+      allow read, create: if isStaff();
+      allow update: if isOwner()
+        || (isStaff() && changedOnly(['balance', 'updatedAt', 'lastActivity']));
+      allow delete: if isOwner();
+
+      match /ledger/{entry} {
+        allow read: if isStaff();
+        allow create: if isStaff() && request.resource.data.by == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+
+    match /stockMoves/{id} {
+      allow read: if isOwner();
+      allow create: if isStaff() && request.resource.data.by == request.auth.uid;
+      allow update, delete: if false;
+    }
+  }
+}

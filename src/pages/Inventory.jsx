@@ -1,0 +1,374 @@
+import { useMemo, useState } from 'react'
+import { collection, deleteDoc, doc, limit, orderBy, query, where } from 'firebase/firestore'
+import { db } from '../firebase'
+import { useLive, useSession } from '../lib/data'
+import { changeStock, saveProduct } from '../lib/ops'
+import { CATEGORY_SUGGESTIONS, fmtDateTime, peso, r2 } from '../lib/format'
+import { Badge, Button, Empty, Field, Icon, Input, Modal, SearchBox, cx, useConfirm, useToast } from '../components/ui'
+
+const stockTone = (p) => ((p.stock || 0) <= 0 ? 'out' : p.stock <= (p.lowStock || 0) ? 'low' : 'ok')
+
+export default function Inventory({ products }) {
+  const { isOwner } = useSession()
+  const list = products.data || []
+  const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState('all')
+  const [editing, setEditing] = useState(null) // product | 'new' | null
+
+  const counts = useMemo(
+    () => ({
+      low: list.filter((p) => stockTone(p) === 'low').length,
+      out: list.filter((p) => stockTone(p) === 'out').length,
+      costValue: r2(list.reduce((s, p) => s + Math.max(p.stock || 0, 0) * (p.cost || 0), 0)),
+      retailValue: r2(list.reduce((s, p) => s + Math.max(p.stock || 0, 0) * (p.price || 0), 0)),
+    }),
+    [list],
+  )
+
+  const shown = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return list.filter((p) => {
+      if (filter === 'low' && stockTone(p) !== 'low') return false
+      if (filter === 'out' && stockTone(p) !== 'out') return false
+      return (
+        !q ||
+        p.name.toLowerCase().includes(q) ||
+        (p.category || '').toLowerCase().includes(q) ||
+        (p.barcode && p.barcode.includes(q))
+      )
+    })
+  }, [list, search, filter])
+
+  const categories = useMemo(
+    () => [...new Set([...list.map((p) => p.category).filter(Boolean), ...CATEGORY_SUGGESTIONS])],
+    [list],
+  )
+
+  return (
+    <div className="space-y-3 px-4 pt-3">
+      {isOwner && (
+        <div className="grid grid-cols-2 gap-2">
+          <Stat label="Stock value (cost)" value={peso(counts.costValue)} />
+          <Stat label="Stock value (retail)" value={peso(counts.retailValue)} />
+        </div>
+      )}
+
+      <SearchBox value={search} onChange={setSearch} placeholder="Search inventory…" />
+      <div className="flex gap-2">
+        {[
+          ['all', `All (${list.length})`],
+          ['low', `Low (${counts.low})`],
+          ['out', `Out (${counts.out})`],
+        ].map(([k, l]) => (
+          <button
+            key={k}
+            onClick={() => setFilter(k)}
+            className={cx(
+              'rounded-full px-3.5 py-1.5 text-sm font-semibold',
+              filter === k ? 'bg-brand-700 text-white' : 'bg-white text-brand-800 ring-1 ring-brand-200',
+              k === 'low' && counts.low > 0 && filter !== k && 'text-amber-700 ring-amber-300',
+              k === 'out' && counts.out > 0 && filter !== k && 'text-red-700 ring-red-300',
+            )}
+          >
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {list.length === 0 ? (
+        <Empty title="No products yet">
+          {isOwner ? 'Tap “Add product” to start your inventory.' : 'The owner hasn’t added products yet.'}
+        </Empty>
+      ) : shown.length === 0 ? (
+        <Empty icon="search" title="Nothing here" />
+      ) : (
+        <div className="divide-y divide-brand-100 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-brand-100">
+          {shown.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => isOwner && setEditing(p)}
+              className={cx('flex w-full items-center gap-3 px-4 py-3 text-left', isOwner && 'hover:bg-brand-50')}
+            >
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-semibold text-brand-900">{p.name}</p>
+                <p className="truncate text-xs text-brand-900/55">
+                  {p.category || 'Others'} · {peso(p.price)}
+                  {isOwner && ` · cost ${peso(p.cost)}`}
+                </p>
+              </div>
+              <Badge tone={stockTone(p)}>
+                {p.stock || 0} {p.unit || 'pc'}
+              </Badge>
+              {isOwner && <Icon name="chevron" size={16} className="text-brand-300" />}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {isOwner && (
+        <div className="fixed bottom-[84px] right-4 z-30 sm:right-[calc(50%-23rem)]">
+          <Button size="lg" className="rounded-full shadow-xl" onClick={() => setEditing('new')}>
+            <Icon name="plus" /> Add product
+          </Button>
+        </div>
+      )}
+
+      {editing && (
+        <ProductEditor
+          product={editing === 'new' ? null : list.find((p) => p.id === editing.id) || editing}
+          categories={categories}
+          onClose={() => setEditing(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+function Stat({ label, value, tone }) {
+  return (
+    <div className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-brand-100">
+      <p className="text-xs font-medium text-brand-900/55">{label}</p>
+      <p className={cx('text-lg font-bold', tone || 'text-brand-900')}>{value}</p>
+    </div>
+  )
+}
+
+function ProductEditor({ product, categories, onClose }) {
+  const session = useSession()
+  const toast = useToast()
+  const [confirm, confirmDialog] = useConfirm()
+  const isNew = !product
+  const [f, setF] = useState(() => ({
+    name: product?.name || '',
+    category: product?.category || '',
+    price: product?.price ?? '',
+    cost: product?.cost ?? '',
+    stock: '',
+    lowStock: product?.lowStock ?? session.store.lowStockDefault ?? 5,
+    unit: product?.unit || 'pc',
+    barcode: product?.barcode || '',
+  }))
+  const [mode, setMode] = useState('details') // details | restock | count
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
+  const margin = Number(f.price) && Number(f.cost) ? r2(Number(f.price) - Number(f.cost)) : null
+
+  const save = (e) => {
+    e.preventDefault()
+    if (Number(f.price) <= 0) return toast('Enter a selling price.', 'error')
+    saveProduct({ product, data: f, session }).catch((err) => toast(`Save failed: ${err.code || err.message}`, 'error'))
+    toast(isNew ? `${f.name} added` : `${f.name} saved`)
+    onClose()
+  }
+
+  const remove = async () => {
+    const ok = await confirm({
+      title: 'Delete product?',
+      message: `“${product.name}” will be removed from the product list. Past sales are kept.`,
+      confirmText: 'Delete',
+      danger: true,
+    })
+    if (!ok) return
+    deleteDoc(doc(db, 'products', product.id)).catch((err) => toast(`Delete failed: ${err.code}`, 'error'))
+    toast(`${product.name} deleted`)
+    onClose()
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={isNew ? 'Add product' : product.name}
+      footer={
+        mode === 'details' ? (
+          <div className="flex gap-2 pb-2">
+            {!isNew && (
+              <Button variant="outline" onClick={remove} aria-label="Delete">
+                <Icon name="trash" />
+              </Button>
+            )}
+            <Button form="product-form" type="submit" size="lg" className="flex-1">
+              {isNew ? 'Add product' : 'Save changes'}
+            </Button>
+          </div>
+        ) : null
+      }
+    >
+      {!isNew && (
+        <div className="mb-4 grid grid-cols-3 gap-1 rounded-2xl bg-brand-100 p-1 text-sm">
+          {[
+            ['details', 'Details'],
+            ['restock', 'Restock'],
+            ['count', 'Stock count'],
+          ].map(([k, l]) => (
+            <button
+              key={k}
+              onClick={() => setMode(k)}
+              className={cx(
+                'rounded-xl py-2 font-semibold',
+                mode === k ? 'bg-white text-brand-800 shadow' : 'text-brand-800/60',
+              )}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {mode === 'details' && (
+        <form id="product-form" onSubmit={save} className="space-y-3">
+          <Field label="Product name">
+            <Input value={f.name} onChange={set('name')} placeholder="e.g. Coke Mismo 290ml" required autoFocus={isNew} />
+          </Field>
+          <Field label="Category">
+            <Input value={f.category} onChange={set('category')} list="cat-list" placeholder="e.g. Beverages" />
+            <datalist id="cat-list">
+              {categories.map((c) => (
+                <option key={c} value={c} />
+              ))}
+            </datalist>
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Selling price (₱)">
+              <Input type="number" inputMode="decimal" step="0.01" min="0" value={f.price} onChange={set('price')} required />
+            </Field>
+            <Field label="Cost / puhunan (₱)">
+              <Input type="number" inputMode="decimal" step="0.01" min="0" value={f.cost} onChange={set('cost')} />
+            </Field>
+          </div>
+          {margin !== null && (
+            <p className={cx('text-sm', margin < 0 ? 'text-red-600' : 'text-emerald-700')}>
+              Profit per {f.unit || 'pc'}: <b>{peso(margin)}</b>
+            </p>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            {isNew && (
+              <Field label="Starting stock">
+                <Input type="number" inputMode="numeric" min="0" value={f.stock} onChange={set('stock')} placeholder="0" />
+              </Field>
+            )}
+            <Field label="Low-stock alert at">
+              <Input type="number" inputMode="numeric" min="0" value={f.lowStock} onChange={set('lowStock')} />
+            </Field>
+            <Field label="Unit">
+              <Input value={f.unit} onChange={set('unit')} placeholder="pc, pack, sachet…" />
+            </Field>
+          </div>
+          <Field label="Barcode (optional)">
+            <Input value={f.barcode} onChange={set('barcode')} inputMode="numeric" />
+          </Field>
+          {!isNew && <StockHistory productId={product.id} />}
+        </form>
+      )}
+
+      {mode === 'restock' && <Restock product={product} onDone={onClose} />}
+      {mode === 'count' && <StockCount product={product} onDone={onClose} />}
+      {confirmDialog}
+    </Modal>
+  )
+}
+
+function Restock({ product, onDone }) {
+  const session = useSession()
+  const toast = useToast()
+  const [qty, setQty] = useState('')
+  const [cost, setCost] = useState('')
+  const submit = (e) => {
+    e.preventDefault()
+    const n = parseInt(qty, 10)
+    if (!n || n <= 0) return
+    changeStock({ product, delta: n, reason: 'restock', newCost: cost, session }).catch((err) =>
+      toast(`Restock failed: ${err.code || err.message}`, 'error'),
+    )
+    toast(`+${n} ${product.name}`)
+    onDone()
+  }
+  return (
+    <form onSubmit={submit} className="space-y-3">
+      <p className="text-sm text-brand-900/70">
+        Current stock: <b>{product.stock || 0}</b> {product.unit || 'pc'}
+      </p>
+      <Field label="Quantity received">
+        <Input type="number" inputMode="numeric" min="1" value={qty} onChange={(e) => setQty(e.target.value)} autoFocus required />
+      </Field>
+      <Field label="New cost per unit (optional)" hint={`Current cost: ${peso(product.cost)}. Leave blank to keep it.`}>
+        <Input type="number" inputMode="decimal" step="0.01" min="0" value={cost} onChange={(e) => setCost(e.target.value)} />
+      </Field>
+      <Button type="submit" size="lg" className="w-full">
+        <Icon name="restock" /> Add to stock
+      </Button>
+    </form>
+  )
+}
+
+function StockCount({ product, onDone }) {
+  const session = useSession()
+  const toast = useToast()
+  const [count, setCount] = useState('')
+  const [note, setNote] = useState('')
+  const delta = count === '' ? 0 : parseInt(count, 10) - (product.stock || 0)
+  const submit = (e) => {
+    e.preventDefault()
+    if (count === '' || delta === 0) return onDone()
+    changeStock({ product, delta, reason: 'count', note, session }).catch((err) =>
+      toast(`Update failed: ${err.code || err.message}`, 'error'),
+    )
+    toast(`${product.name} stock set to ${count}`)
+    onDone()
+  }
+  return (
+    <form onSubmit={submit} className="space-y-3">
+      <p className="text-sm text-brand-900/70">
+        Use this after a physical count, or to record spoiled / expired / lost items. System says{' '}
+        <b>{product.stock || 0}</b>.
+      </p>
+      <Field label="Actual count on the shelf">
+        <Input type="number" inputMode="numeric" min="0" value={count} onChange={(e) => setCount(e.target.value)} autoFocus required />
+      </Field>
+      {count !== '' && delta !== 0 && (
+        <p className={cx('text-sm font-semibold', delta < 0 ? 'text-red-600' : 'text-emerald-700')}>
+          {delta > 0 ? '+' : ''}
+          {delta} {product.unit || 'pc'}
+          {delta < 0 && product.cost ? ` (loss of ${peso(-delta * product.cost)} at cost)` : ''}
+        </p>
+      )}
+      <Field label="Reason (optional)">
+        <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. expired, damaged, miscount" />
+      </Field>
+      <Button type="submit" size="lg" className="w-full">
+        Save count
+      </Button>
+    </form>
+  )
+}
+
+function StockHistory({ productId }) {
+  const moves =
+    useLive(
+      query(collection(db, 'stockMoves'), where('productId', '==', productId), orderBy('createdAt', 'desc'), limit(8)),
+      [productId],
+    ).data || []
+  if (!moves.length) return null
+  const label = { restock: 'Restock', count: 'Count', initial: 'Starting stock' }
+  return (
+    <div className="pt-2">
+      <p className="mb-1 text-sm font-semibold text-brand-900/80">Recent stock changes</p>
+      <div className="divide-y divide-brand-100 rounded-xl bg-brand-50 text-sm">
+        {moves.map((m) => (
+          <div key={m.id} className="flex items-center justify-between px-3 py-2">
+            <span>
+              {label[m.reason] || m.reason}
+              {m.note ? ` · ${m.note}` : ''}
+              <span className="block text-xs text-brand-900/50">
+                {fmtDateTime(m.createdAt)} · {m.byName}
+              </span>
+            </span>
+            <span className={cx('font-bold', m.delta < 0 ? 'text-red-600' : 'text-emerald-700')}>
+              {m.delta > 0 ? '+' : ''}
+              {m.delta}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}

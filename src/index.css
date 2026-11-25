@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-display: "Playfair Display", Georgia, serif;
+
+  --color-brand-50: #faf5ee;
+  --color-brand-100: #f5ede0;
+  --color-brand-200: #ede0ce;
+  --color-brand-300: #e0c4a0;
+  --color-brand-400: #c4956a;
+  --color-brand-500: #9a5030;
+  --color-brand-600: #8b3a1a;
+  --color-brand-700: #6b2d0e;
+  --color-brand-800: #5c2010;
+  --color-brand-900: #3d1508;
+}
+
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--color-brand-50);
+  color: #2a1a12;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+input, select, textarea, button { font: inherit; }
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] { -moz-appearance: textfield; }
+
+.field {
+  width: 100%;
+  border: 1px solid var(--color-brand-200);
+  background: white;
+  border-radius: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  outline: none;
+}
+.field:focus {
+  border-color: var(--color-brand-600);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand-600) 18%, transparent);
+}
+
+.pb-safe { padding-bottom: max(env(safe-area-inset-bottom), 0.5rem); }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+
+@keyframes sheet-up { from { transform: translateY(24px); opacity: 0 } to { transform: none; opacity: 1 } }
+.animate-sheet { animation: sheet-up .18s ease-out; }
