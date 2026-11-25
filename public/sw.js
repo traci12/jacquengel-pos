@@ -3,7 +3,7 @@
  * - Lets the app open with no signal: the page and its files are cached.
  * Store data (products, sales, utang) is cached separately by Firestore.
  */
-const CACHE = 'jn-pos-v1'
+const CACHE = 'jn-pos-v2'
 const SHELL = ['/', '/manifest.webmanifest', '/logo-192.png', '/logo-512.png', '/favicon.png']
 
 self.addEventListener('install', (event) => {
@@ -28,7 +28,7 @@ self.addEventListener('fetch', (event) => {
   // Page loads: try the network first so updates show up, fall back to cache offline.
   if (req.mode === 'navigate') {
     event.respondWith(
-      fetch(req)
+      fetch(req, { cache: 'no-cache' })
         .then((res) => {
           const copy = res.clone()
           caches.open(CACHE).then((c) => c.put('/', copy))
