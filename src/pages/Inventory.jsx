@@ -368,11 +368,28 @@ function ProductEditor({ product, defaults, categories, onClose }) {
               )}
             </div>
             <div className="space-y-2">
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-tint-100 px-3 py-1.5 text-sm font-semibold text-brand-800 hover:bg-tint-200">
-                <Icon name="camera" size={16} />
-                {photoBusy ? 'Loading…' : f.image ? 'Change photo' : 'Add photo'}
-                <input type="file" accept="image/*" className="sr-only" onChange={pickPhoto} disabled={photoBusy} />
-              </label>
+              {photoBusy ? (
+                <p className="text-sm font-medium text-brand-900/60">Loading photo…</p>
+              ) : (
+                <>
+                  <label className="flex cursor-pointer items-center gap-2 rounded-xl bg-tint-100 px-3 py-1.5 text-sm font-semibold text-brand-800 hover:bg-tint-200">
+                    <Icon name="camera" size={16} />
+                    Take photo
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="sr-only"
+                      onChange={pickPhoto}
+                    />
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2 rounded-xl bg-white px-3 py-1.5 text-sm font-semibold text-brand-800 ring-1 ring-inset ring-brand-200 hover:bg-brand-50">
+                    <Icon name="image" size={16} />
+                    Choose photo
+                    <input type="file" accept="image/*" className="sr-only" onChange={pickPhoto} />
+                  </label>
+                </>
+              )}
               {f.image && (
                 <button
                   type="button"
@@ -382,7 +399,7 @@ function ProductEditor({ product, defaults, categories, onClose }) {
                   Remove photo
                 </button>
               )}
-              <p className="text-xs text-brand-900/50">Optional. Cropped to a square.</p>
+              <p className="text-xs text-brand-900/50">Optional, cropped to a square.</p>
             </div>
           </div>
           <Field label="Product name">
