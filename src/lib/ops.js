@@ -1,6 +1,6 @@
 import { collection, doc, increment, serverTimestamp, writeBatch } from 'firebase/firestore'
 import { db } from '../firebase'
-import { dayKey, r2 } from './format'
+import { dayKey, r2, tracksStock } from './format'
 
 /**
  * All writes go through batches (not transactions) so they work offline:
@@ -23,6 +23,7 @@ export function createSale({ cart, payment, cashReceived, customer, paidNow, ses
     qty,
     price: r2(product.price),
     cost: r2(product.cost || 0),
+    ...(tracksStock(product) ? {} : { madeToOrder: true }),
     subtotal: r2(product.price * qty),
   }))
   const total = r2(items.reduce((s, i) => s + i.subtotal, 0))
@@ -96,6 +97,7 @@ export function createSale({ cart, payment, cashReceived, customer, paidNow, ses
   batch.set(saleRef, sale)
 
   for (const i of items) {
+    if (i.madeToOrder) continue
     batch.update(doc(db, 'products', i.productId), {
       stock: increment(-i.qty),
       updatedAt: serverTimestamp(),
@@ -115,7 +117,7 @@ export function voidSale({ sale, productIds, session, reason }) {
     voidedAt: serverTimestamp(),
   })
   for (const i of sale.items) {
-    if (!productIds.has(i.productId)) continue
+    if (!productIds.has(i.productId) || i.madeToOrder) continue
     batch.update(doc(db, 'products', i.productId), {
       stock: increment(i.qty),
       updatedAt: serverTimestamp(),
@@ -168,12 +170,13 @@ export function saveProduct({ product, data, session }) {
     lowStock: Number(data.lowStock) || 0,
     barcode: (data.barcode || '').trim(),
     unit: (data.unit || 'pc').trim(),
+    madeToOrder: !!data.madeToOrder,
     updatedAt: serverTimestamp(),
   }
   if (product?.id) {
     batch.update(ref, clean)
   } else {
-    const stock = Number(data.stock) || 0
+    const stock = data.madeToOrder ? 0 : Number(data.stock) || 0
     batch.set(ref, { ...clean, stock, createdAt: serverTimestamp() })
     if (stock) {
       batch.set(doc(collection(db, 'stockMoves')), {
@@ -204,11 +207,12 @@ export function importProducts({ items, stock, session }) {
       lowStock: p.lowStock,
       unit: p.unit,
       barcode: '',
-      stock: qty,
+      madeToOrder: !!p.madeToOrder,
+      stock: p.madeToOrder ? 0 : qty,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     })
-    if (qty) {
+    if (qty && !p.madeToOrder) {
       batch.set(doc(collection(db, 'stockMoves')), {
         productId: ref.id,
         name: p.name,

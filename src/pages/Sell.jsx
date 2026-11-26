@@ -3,7 +3,7 @@ import { collection, orderBy, query } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useLive, useSession } from '../lib/data'
 import { createSale } from '../lib/ops'
-import { peso, r2, shortId, fmtDateTime } from '../lib/format'
+import { peso, r2, shortId, fmtDateTime, tracksStock } from '../lib/format'
 import { Badge, Button, Empty, Field, Icon, Input, Modal, SearchBox, cx, useToast } from '../components/ui'
 
 const CART_KEY = 'cart:v1'
@@ -47,7 +47,7 @@ export default function Sell({ products }) {
   const add = (p, n = 1) => {
     const current = cart[p.id] || 0
     const next = current + n
-    if (next > (p.stock || 0)) {
+    if (tracksStock(p) && next > (p.stock || 0)) {
       toast(`Only ${p.stock || 0} ${p.name} left in stock.`, 'error')
       return
     }
@@ -159,8 +159,9 @@ function ProductTile({ p, inCart, onAdd, onRemove }) {
   const timer = useRef(null)
   const held = useRef(false)
   const start = useRef(null)
-  const out = (p.stock || 0) <= 0
-  const low = !out && p.stock <= (p.lowStock || 0)
+  const tracked = tracksStock(p)
+  const out = tracked && (p.stock || 0) <= 0
+  const low = tracked && !out && p.stock <= (p.lowStock || 0)
 
   const cancel = () => {
     clearTimeout(timer.current)
@@ -219,8 +220,13 @@ function ProductTile({ p, inCart, onAdd, onRemove }) {
             out ? 'text-red-600' : low ? 'text-amber-700' : 'text-brand-900/50',
           )}
         >
-          <span className={cx('h-1.5 w-1.5 rounded-full', out ? 'bg-red-400' : low ? 'bg-amber-400' : 'bg-emerald-400')} />
-          {out ? 'Out of stock' : `${p.stock} in stock`}
+          <span
+            className={cx(
+              'h-1.5 w-1.5 rounded-full',
+              !tracked ? 'bg-brand-400' : out ? 'bg-red-400' : low ? 'bg-amber-400' : 'bg-emerald-400',
+            )}
+          />
+          {!tracked ? 'Made to order' : out ? 'Out of stock' : `${p.stock} in stock`}
         </span>
       </span>
     </button>

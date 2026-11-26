@@ -4,10 +4,11 @@ import { db } from '../firebase'
 import { useLive, useSession } from '../lib/data'
 import { changeStock, importProducts, saveProduct } from '../lib/ops'
 import { STARTER_PRODUCTS } from '../lib/starterProducts'
-import { CATEGORY_SUGGESTIONS, fmtDateTime, peso, r2 } from '../lib/format'
+import { CATEGORY_SUGGESTIONS, fmtDateTime, peso, r2, tracksStock } from '../lib/format'
 import { Badge, Button, Empty, Field, Icon, Input, Modal, SearchBox, cx, useConfirm, useToast } from '../components/ui'
 
-const stockTone = (p) => ((p.stock || 0) <= 0 ? 'out' : p.stock <= (p.lowStock || 0) ? 'low' : 'ok')
+const stockTone = (p) =>
+  !tracksStock(p) ? 'none' : (p.stock || 0) <= 0 ? 'out' : p.stock <= (p.lowStock || 0) ? 'low' : 'ok'
 
 export default function Inventory({ products }) {
   const { isOwner } = useSession()
@@ -34,8 +35,8 @@ export default function Inventory({ products }) {
       all: inCategory.length,
       low: inCategory.filter((p) => stockTone(p) === 'low').length,
       out: inCategory.filter((p) => stockTone(p) === 'out').length,
-      costValue: r2(list.reduce((s, p) => s + Math.max(p.stock || 0, 0) * (p.cost || 0), 0)),
-      retailValue: r2(list.reduce((s, p) => s + Math.max(p.stock || 0, 0) * (p.price || 0), 0)),
+      costValue: r2(list.filter(tracksStock).reduce((s, p) => s + Math.max(p.stock || 0, 0) * (p.cost || 0), 0)),
+      retailValue: r2(list.filter(tracksStock).reduce((s, p) => s + Math.max(p.stock || 0, 0) * (p.price || 0), 0)),
     }),
     [list, inCategory],
   )
@@ -134,9 +135,13 @@ export default function Inventory({ products }) {
                   {isOwner && ` · cost ${peso(p.cost)}`}
                 </p>
               </div>
+              {!tracksStock(p) ? (
+                <Badge tone="info">Made to order</Badge>
+              ) : (
               <Badge tone={stockTone(p)}>
                 {p.stock || 0} {p.unit || 'pc'}
               </Badge>
+              )}
               {isOwner && <Icon name="chevron" size={16} className="text-brand-300" />}
             </button>
           ))}
@@ -194,9 +199,15 @@ function ProductEditor({ product, categories, onClose }) {
     lowStock: product?.lowStock ?? session.store.lowStockDefault ?? 5,
     unit: product?.unit || 'pc',
     barcode: product?.barcode || '',
+    madeToOrder: !!product?.madeToOrder,
   }))
   const [mode, setMode] = useState('details') // details | restock | count
-  const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
+  const set = (k) => (e) => {
+    const v = e.target.value
+    // New Cafe items default to made-to-order.
+    if (k === 'category' && isNew && v.trim().toLowerCase() === 'cafe') return setF({ ...f, category: v, madeToOrder: true })
+    setF({ ...f, [k]: v })
+  }
   const margin = Number(f.price) && Number(f.cost) ? r2(Number(f.price) - Number(f.cost)) : null
 
   const save = (e) => {
@@ -240,7 +251,7 @@ function ProductEditor({ product, categories, onClose }) {
         ) : null
       }
     >
-      {!isNew && (
+      {!isNew && tracksStock(product) && (
         <div className="mb-4 grid grid-cols-3 gap-1 rounded-xl bg-brand-100 p-1 text-sm">
           {[
             ['details', 'Details'],
@@ -287,15 +298,31 @@ function ProductEditor({ product, categories, onClose }) {
               Profit per {f.unit || 'pc'}: <b>{peso(margin)}</b>
             </p>
           )}
+          <label className="flex cursor-pointer items-start gap-3 rounded-xl bg-brand-50 p-3 ring-1 ring-brand-200/70">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-5 w-5 accent-brand-700"
+              checked={f.madeToOrder}
+              onChange={(e) => setF({ ...f, madeToOrder: e.target.checked })}
+            />
+            <span className="text-sm">
+              <span className="block font-medium text-brand-900">Made to order</span>
+              <span className="text-brand-900/60">
+                For cafe drinks and cooked food. Stock isn’t counted, so it never runs out.
+              </span>
+            </span>
+          </label>
           <div className="grid grid-cols-2 gap-3">
-            {isNew && (
+            {isNew && !f.madeToOrder && (
               <Field label="Starting stock">
                 <Input type="number" inputMode="numeric" min="0" value={f.stock} onChange={set('stock')} placeholder="0" />
               </Field>
             )}
-            <Field label="Low-stock alert at">
-              <Input type="number" inputMode="numeric" min="0" value={f.lowStock} onChange={set('lowStock')} />
-            </Field>
+            {!f.madeToOrder && (
+              <Field label="Low-stock alert at">
+                <Input type="number" inputMode="numeric" min="0" value={f.lowStock} onChange={set('lowStock')} />
+              </Field>
+            )}
             <Field label="Unit">
               <Input value={f.unit} onChange={set('unit')} placeholder="pc, pack, sachet…" />
             </Field>
@@ -303,7 +330,7 @@ function ProductEditor({ product, categories, onClose }) {
           <Field label="Barcode (optional)">
             <Input value={f.barcode} onChange={set('barcode')} inputMode="numeric" />
           </Field>
-          {!isNew && <StockHistory productId={product.id} />}
+          {!isNew && tracksStock(product) && <StockHistory productId={product.id} />}
         </form>
       )}
 
@@ -471,8 +498,8 @@ function StarterImport({ existing, onClose }) {
       ) : (
         <>
           <p className="mb-3 text-sm text-brand-900/70">
-            Popular Pinoy snacks and drinks with typical 2026 sari-sari prices. Untick what you don’t sell. You can edit
-            any price afterwards.
+            Popular Pinoy snacks and drinks with typical 2026 sari-sari prices, plus your JacqueNgel cafe menu. Untick
+            what you don’t sell. You can edit any price afterwards.
           </p>
           {groups.map(([cat, items]) => {
             const all = items.every((p) => picked.has(p.name))
@@ -500,7 +527,7 @@ function StarterImport({ existing, onClose }) {
                       <span className="text-right text-xs text-brand-900/60">
                         <b className="text-sm text-brand-900">{peso(p.price)}</b>
                         <br />
-                        cost {peso(p.cost)}
+                        {p.madeToOrder ? 'made to order' : `cost ${peso(p.cost)}`}
                       </span>
                     </label>
                   ))}

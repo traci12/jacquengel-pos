@@ -3,7 +3,7 @@ import { collection, orderBy, query, where } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useLive, useSession } from '../lib/data'
 import { voidSale } from '../lib/ops'
-import { dayKey, fmtDateTime, fmtDay, peso, r2, shortId, startOfManilaDay, startOfManilaMonth, toDate } from '../lib/format'
+import { dayKey, fmtDateTime, fmtDay, peso, r2, shortId, startOfManilaDay, startOfManilaMonth, toDate, tracksStock } from '../lib/format'
 import { Badge, Button, Empty, Field, Icon, Input, Modal, cx, useToast } from '../components/ui'
 
 const RANGES = [
@@ -72,7 +72,7 @@ export default function Reports({ products }) {
   }, [sales])
 
   const lowStock = products
-    .filter((p) => (p.stock || 0) <= (p.lowStock || 0))
+    .filter((p) => tracksStock(p) && (p.stock || 0) <= (p.lowStock || 0))
     .sort((a, b) => (a.stock || 0) - (b.stock || 0))
   const maxDay = Math.max(1, ...stats.days.map(([, v]) => v))
 

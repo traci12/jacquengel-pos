@@ -55,6 +55,9 @@ export const startOfManilaMonth = () => {
   return new Date(`${key.slice(0, 8)}01T00:00:00+08:00`)
 }
 
+/** Cafe drinks/food are made to order: no stock counting, never "out of stock". */
+export const tracksStock = (p) => !p?.madeToOrder
+
 export const shortId = (id) => (id || '').slice(-6).toUpperCase()
 
 export const CATEGORY_SUGGESTIONS = [

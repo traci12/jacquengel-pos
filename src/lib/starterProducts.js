@@ -62,11 +62,42 @@ const rows = [
   ['Cobra Energy Drink 240ml', 'Juice & Energy Drinks', 18, 24, 'bottle', 6],
 ]
 
-export const STARTER_PRODUCTS = rows.map(([name, category, cost, price, unit, lowStock]) => ({
-  name,
-  category,
-  cost,
-  price,
-  unit,
-  lowStock,
-}))
+// JacqueNgel cafe menu (from the café website and Food Hub tarpaulin).
+// Made to order: no stock counting. Costs are unknown, so they start at 0.
+// [name, price, unit]
+const cafe = [
+  ['Iced Café Latte', 70, 'cup'],
+  ['Iced Vanilla Latte', 85, 'cup'],
+  ['Iced Caramel Latte', 85, 'cup'],
+  ['Iced Hazelnut Latte', 85, 'cup'],
+  ['Iced Mocha Latte', 85, 'cup'],
+  ['Iced Butterscotch Latte', 85, 'cup'],
+  ['Matcha Latte', 80, 'cup'],
+  ['Strawberry Matcha Latte', 90, 'cup'],
+  ['Thai Latte', 70, 'cup'],
+  ['Mango Thai Latte', 80, 'cup'],
+  ['Strawberry Milk', 75, 'cup'],
+  ['Blueberry Milk', 75, 'cup'],
+  ['Mango Milk', 75, 'cup'],
+  ['Fruit Soda', 55, 'cup'],
+  ['Nachos', 45, 'order'],
+  ['Churros', 50, 'order'],
+  ['French Fries', 40, 'order'],
+  ['Siomai', 30, 'order'],
+  ['Fishball', 20, 'order'],
+  ['Kikiam', 20, 'order'],
+  ['Ice Candy', 15, 'pc'],
+]
+
+export const STARTER_PRODUCTS = [
+  ...rows.map(([name, category, cost, price, unit, lowStock]) => ({ name, category, cost, price, unit, lowStock })),
+  ...cafe.map(([name, price, unit]) => ({
+    name,
+    category: 'Cafe',
+    cost: 0,
+    price,
+    unit,
+    lowStock: 0,
+    madeToOrder: true,
+  })),
+]
