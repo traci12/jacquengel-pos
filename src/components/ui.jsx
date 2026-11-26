@@ -229,4 +229,60 @@ export function useConfirm() {
   return [confirm, dialog]
 }
 
+/* ─── Product photo with placeholder ─────────────────────────────────────── */
+
+const SWATCHES = [
+  ['#f3eae2', '#9a7660'],
+  ['#e9efe7', '#6b8a6e'],
+  ['#f4ecd9', '#a07f3c'],
+  ['#e8edf2', '#6a7f92'],
+  ['#f2e6e6', '#9b6a6a'],
+  ['#ece8f1', '#7d6f92'],
+]
+const swatchFor = (key = '') => {
+  let h = 0
+  for (const ch of key.toLowerCase()) h = (h * 31 + ch.charCodeAt(0)) >>> 0
+  return SWATCHES[h % SWATCHES.length]
+}
+const kindFor = (p) => {
+  const cat = (p.category || '').toLowerCase()
+  const name = (p.name || '').toLowerCase()
+  if (/\b(cafe|coffee)\b/.test(cat))
+    return /\b(latte|coffee|milk|tea|soda|frappe|shake|juice|chocolate|americano|espresso|drink)\b/.test(name) ? 'cup' : 'food'
+  if (/\b(drinks?|beverages?|juice|soda|water)\b/.test(cat)) return 'bottle'
+  if (/\b(latte|coffee|milk tea)\b/.test(name)) return 'cup'
+  if (/\b(cola|soda|juice|water|tea|mismo|coke|sprite|royal|pepsi|sting|cobra|c2|\d+(\.\d+)?\s?(ml|l))\b/.test(name)) return 'bottle'
+  return 'bag'
+}
+const PLACEHOLDER_ICONS = {
+  cup: 'M5 8h12v5a6 6 0 0 1-6 6h0a6 6 0 0 1-6-6V8Zm12 1h1.5a2.5 2.5 0 0 1 0 5H17M8 2.5c-.6.8-.6 1.7 0 2.5m3-2.5c-.6.8-.6 1.7 0 2.5m3-2.5c-.6.8-.6 1.7 0 2.5M4 21h14',
+  bottle: 'M10 2h4v3l1.4 2.1A4 4 0 0 1 16 9.3V20a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2V9.3a4 4 0 0 1 .6-2.2L10 5V2Zm-2 10h8m-8 5h8',
+  bag: 'M6 3h12l-1 3 1 3v9a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3V9l1-3-1-3Zm1 6h10M10 13.5a2 2 0 1 0 4 0 2 2 0 0 0-4 0',
+  food: 'M3 13h18M4.5 13a7.5 7.5 0 0 0 15 0M12 5.5V4m-4.5 3.5L6.5 6m11 1.5 1-1.5M8 17.5h8',
+}
+
+/** Product photo, or a coloured placeholder with an icon when there is none. */
+export function ProductImage({ product, className, iconSize = 36 }) {
+  if (product.image) {
+    return <img src={product.image} alt="" draggable={false} className={cx('object-cover', className)} />
+  }
+  const [bg, fg] = swatchFor(product.category || 'Others')
+  return (
+    <div className={cx('flex items-center justify-center', className)} style={{ background: bg, color: fg }} aria-hidden="true">
+      <svg
+        width={iconSize}
+        height={iconSize}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d={PLACEHOLDER_ICONS[kindFor(product)]} />
+      </svg>
+    </div>
+  )
+}
+
 export { cx }

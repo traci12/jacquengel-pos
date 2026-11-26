@@ -6,7 +6,20 @@ import { changeStock, importProducts, saveProduct } from '../lib/ops'
 import { STARTER_PRODUCTS } from '../lib/starterProducts'
 import { photoToSquare } from '../lib/image'
 import { CATEGORY_SUGGESTIONS, fmtDateTime, isCafeCategory, peso, r2, tracksStock } from '../lib/format'
-import { Badge, Button, Empty, Field, Icon, Input, Modal, SearchBox, cx, useConfirm, useToast } from '../components/ui'
+import {
+  Badge,
+  Button,
+  Empty,
+  Field,
+  Icon,
+  Input,
+  Modal,
+  ProductImage,
+  SearchBox,
+  cx,
+  useConfirm,
+  useToast,
+} from '../components/ui'
 
 const MODE_KEY = 'inventory-mode'
 const isCafe = (p) => isCafeCategory(p.category)
@@ -192,7 +205,7 @@ export default function Inventory({ products }) {
               onClick={() => isOwner && setEditing(p)}
               className={cx('flex w-full items-center gap-3 px-4 py-3 text-left', isOwner && 'hover:bg-brand-50')}
             >
-              {p.image && <img src={p.image} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />}
+              <ProductImage product={p} iconSize={20} className="h-10 w-10 shrink-0 rounded-lg" />
               <div className="min-w-0 flex-1">
                 <p className="truncate font-semibold text-brand-900">{p.name}</p>
                 <p className="truncate text-xs text-brand-900/55">

@@ -4,7 +4,7 @@ import { db } from '../firebase'
 import { useLive, useSession } from '../lib/data'
 import { createSale } from '../lib/ops'
 import { peso, r2, shortId, fmtDateTime, tracksStock, isCafeCategory } from '../lib/format'
-import { Badge, Button, Empty, Field, Icon, Input, Modal, SearchBox, cx, useToast } from '../components/ui'
+import { Badge, Button, Empty, Field, Icon, Input, Modal, ProductImage, SearchBox, cx, useToast } from '../components/ui'
 
 const CART_KEY = 'cart:v1'
 const MODE_KEY = 'sell-mode'
@@ -268,14 +268,11 @@ function ProductTile({ p, inCart, onAdd, onRemove }) {
           {inCart}
         </span>
       )}
-      {p.image && (
-        <img
-          src={p.image}
-          alt=""
-          draggable={false}
-          className="pointer-events-none -mx-3 -mt-3 mb-2.5 aspect-square w-[calc(100%+1.5rem)] max-w-none rounded-t-2xl object-cover"
-        />
-      )}
+      <ProductImage
+        product={p}
+        iconSize={44}
+        className="pointer-events-none -mx-3 -mt-3 mb-2.5 aspect-square w-[calc(100%+1.5rem)] max-w-none rounded-t-2xl"
+      />
       <span className="line-clamp-2 text-[15px] font-medium leading-snug text-brand-900">{p.name}</span>
       <span className="mt-auto pt-3">
         <span className="block text-xl font-semibold tracking-tight tabular-nums text-brand-900">{peso(p.price)}</span>
@@ -367,7 +364,7 @@ function Checkout({ open, onClose, lines, total, onAdd, onClear, onConfirm }) {
       <div className="space-y-2">
         {lines.map(({ product, qty }) => (
           <div key={product.id} className="flex items-center gap-2 rounded-xl bg-brand-50 p-2">
-            {product.image && <img src={product.image} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />}
+            <ProductImage product={product} iconSize={20} className="h-10 w-10 shrink-0 rounded-lg" />
             <div className="min-w-0 flex-1">
               <p className="truncate font-semibold text-brand-900">{product.name}</p>
               <p className="text-xs text-brand-900/60">
