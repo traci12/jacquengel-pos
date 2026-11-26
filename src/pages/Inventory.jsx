@@ -14,22 +14,35 @@ export default function Inventory({ products }) {
   const list = products.data || []
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all')
+  const [category, setCategory] = useState('All')
   const [editing, setEditing] = useState(null) // product | 'new' | null
   const [importing, setImporting] = useState(false)
 
+  const catList = useMemo(
+    () =>
+      [...new Map(list.map((p) => [p.category || 'Others', 0])).keys()].sort((a, b) => a.localeCompare(b)),
+    [list],
+  )
+  const activeCategory = category !== 'All' && !catList.includes(category) ? 'All' : category
+  const inCategory = useMemo(
+    () => (activeCategory === 'All' ? list : list.filter((p) => (p.category || 'Others') === activeCategory)),
+    [list, activeCategory],
+  )
+
   const counts = useMemo(
     () => ({
-      low: list.filter((p) => stockTone(p) === 'low').length,
-      out: list.filter((p) => stockTone(p) === 'out').length,
+      all: inCategory.length,
+      low: inCategory.filter((p) => stockTone(p) === 'low').length,
+      out: inCategory.filter((p) => stockTone(p) === 'out').length,
       costValue: r2(list.reduce((s, p) => s + Math.max(p.stock || 0, 0) * (p.cost || 0), 0)),
       retailValue: r2(list.reduce((s, p) => s + Math.max(p.stock || 0, 0) * (p.price || 0), 0)),
     }),
-    [list],
+    [list, inCategory],
   )
 
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return list.filter((p) => {
+    return inCategory.filter((p) => {
       if (filter === 'low' && stockTone(p) !== 'low') return false
       if (filter === 'out' && stockTone(p) !== 'out') return false
       return (
@@ -39,7 +52,7 @@ export default function Inventory({ products }) {
         (p.barcode && p.barcode.includes(q))
       )
     })
-  }, [list, search, filter])
+  }, [inCategory, search, filter])
 
   const categories = useMemo(
     () => [...new Set([...list.map((p) => p.category).filter(Boolean), ...CATEGORY_SUGGESTIONS])],
@@ -58,7 +71,7 @@ export default function Inventory({ products }) {
       <SearchBox value={search} onChange={setSearch} placeholder="Search inventory…" />
       <div className="flex gap-2">
         {[
-          ['all', `All (${list.length})`],
+          ['all', `All (${counts.all})`],
           ['low', `Low (${counts.low})`],
           ['out', `Out (${counts.out})`],
         ].map(([k, l]) => (
@@ -81,6 +94,15 @@ export default function Inventory({ products }) {
           </button>
         ))}
       </div>
+      {catList.length > 1 && (
+        <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
+          {['All', ...catList].map((c) => (
+            <button key={c} onClick={() => setCategory(c)} aria-pressed={activeCategory === c} className="chip">
+              {c === 'All' ? 'All categories' : c}
+            </button>
+          ))}
+        </div>
+      )}
 
       {list.length === 0 ? (
         <Empty title="No products yet">
