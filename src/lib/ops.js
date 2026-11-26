@@ -20,6 +20,7 @@ export function createSale({ cart, payment, cashReceived, customer, paidNow, ses
   const items = cart.map(({ product, qty }) => ({
     productId: product.id,
     name: product.name,
+    category: product.category || 'Others',
     qty,
     price: r2(product.price),
     cost: r2(product.cost || 0),

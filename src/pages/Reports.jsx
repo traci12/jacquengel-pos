@@ -3,7 +3,19 @@ import { collection, orderBy, query, where } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useLive, useSession } from '../lib/data'
 import { voidSale } from '../lib/ops'
-import { dayKey, fmtDateTime, fmtDay, peso, r2, shortId, startOfManilaDay, startOfManilaMonth, toDate, tracksStock } from '../lib/format'
+import {
+  dayKey,
+  fmtDateTime,
+  fmtDay,
+  isCafeCategory,
+  peso,
+  r2,
+  shortId,
+  startOfManilaDay,
+  startOfManilaMonth,
+  toDate,
+  tracksStock,
+} from '../lib/format'
 import { Badge, Button, Empty, Field, Icon, Input, Modal, cx, useToast } from '../components/ui'
 
 const RANGES = [
@@ -14,8 +26,19 @@ const RANGES = [
   { id: 'month', label: 'This month', start: () => startOfManilaMonth() },
 ]
 
+const BUSINESSES = [
+  { id: 'sari', label: 'Sari-sari' },
+  { id: 'cafe', label: 'Cafe' },
+  { id: 'all', label: 'Both' },
+]
+
 export default function Reports({ products }) {
   const [rangeId, setRangeId] = useState('today')
+  const [biz, setBiz] = useState(() => sessionStorage.getItem('report-biz') || 'sari')
+  const chooseBiz = (b) => {
+    setBiz(b)
+    sessionStorage.setItem('report-biz', b)
+  }
   const range = RANGES.find((r) => r.id === rangeId)
   const start = range.start()
   const end = range.end?.()
@@ -29,31 +52,62 @@ export default function Reports({ products }) {
     () => (salesQ.data || []).filter((s) => !end || toDate(s.createdAt) < end),
     [salesQ.data, end],
   )
-  const sales = all.filter((s) => !s.voided)
   const [openSale, setOpenSale] = useState(null)
 
+  // Which business an item belongs to. Older sales don't store the category,
+  // so fall back to the product's current category.
+  const byId = useMemo(() => new Map(products.map((p) => [p.id, p])), [products])
+  const inBiz = useMemo(() => {
+    const isCafe = (i) => isCafeCategory(i.category ?? byId.get(i.productId)?.category)
+    return (i) => biz === 'all' || (biz === 'cafe' ? isCafe(i) : !isCafe(i))
+  }, [biz, byId])
+
+  // Each sale cut down to this business's items (a cart can mix cafe and sari-sari).
+  const view = useMemo(
+    () =>
+      all
+        .map((s) => {
+          const items = s.items.filter(inBiz)
+          if (!items.length) return null
+          const total = r2(items.reduce((a, i) => a + i.subtotal, 0))
+          const share = s.total ? total / s.total : 0
+          return {
+            sale: s,
+            items,
+            total,
+            cost: r2(items.reduce((a, i) => a + (i.cost || 0) * i.qty, 0)),
+            credit: r2((s.creditAmount || 0) * share),
+            mixed: items.length < s.items.length,
+          }
+        })
+        .filter(Boolean),
+    [all, inBiz],
+  )
+  const live = view.filter((v) => !v.sale.voided)
+
   const stats = useMemo(() => {
-    const total = r2(sales.reduce((a, s) => a + s.total, 0))
-    const cost = r2(sales.reduce((a, s) => a + (s.costTotal || 0), 0))
-    const credit = r2(sales.reduce((a, s) => a + (s.creditAmount || 0), 0))
+    const total = r2(live.reduce((a, v) => a + v.total, 0))
+    const cost = r2(live.reduce((a, v) => a + v.cost, 0))
+    const credit = r2(live.reduce((a, v) => a + v.credit, 0))
     const profit = r2(total - cost)
 
     const byProduct = new Map()
     const byDay = new Map()
     const byCashier = new Map()
-    for (const s of sales) {
-      for (const i of s.items) {
+    for (const v of live) {
+      for (const i of v.items) {
         const p = byProduct.get(i.productId) || { name: i.name, qty: 0, revenue: 0, profit: 0 }
         p.qty += i.qty
         p.revenue += i.subtotal
-        p.profit += i.subtotal - i.cost * i.qty
+        p.profit += i.subtotal - (i.cost || 0) * i.qty
         byProduct.set(i.productId, p)
       }
+      const s = v.sale
       const d = s.day || dayKey(toDate(s.createdAt) || new Date())
-      byDay.set(d, r2((byDay.get(d) || 0) + s.total))
+      byDay.set(d, r2((byDay.get(d) || 0) + v.total))
       const c = byCashier.get(s.cashierName) || { count: 0, total: 0 }
       c.count += 1
-      c.total = r2(c.total + s.total)
+      c.total = r2(c.total + v.total)
       byCashier.set(s.cashierName, c)
     }
     return {
@@ -62,43 +116,60 @@ export default function Reports({ products }) {
       profit,
       credit,
       cashIn: r2(total - credit),
-      count: sales.length,
-      avg: sales.length ? r2(total / sales.length) : 0,
+      count: live.length,
+      avg: live.length ? r2(total / live.length) : 0,
       margin: total ? Math.round((profit / total) * 100) : 0,
       best: [...byProduct.values()].sort((a, b) => b.qty - a.qty).slice(0, 10),
       days: [...byDay.entries()].sort(([a], [b]) => a.localeCompare(b)),
       cashiers: [...byCashier.entries()].sort((a, b) => b[1].total - a[1].total),
     }
-  }, [sales])
+  }, [live])
 
   const lowStock = products
-    .filter((p) => tracksStock(p) && (p.stock || 0) <= (p.lowStock || 0))
+    .filter((p) => tracksStock(p) && !isCafeCategory(p.category) && (p.stock || 0) <= (p.lowStock || 0))
     .sort((a, b) => (a.stock || 0) - (b.stock || 0))
   const maxDay = Math.max(1, ...stats.days.map(([, v]) => v))
+  const missingCost = biz !== 'sari' && products.some((p) => isCafeCategory(p.category) && !p.cost)
 
   return (
     <div className="space-y-4 px-4 pt-3">
+      <div className="grid grid-cols-3 gap-1 rounded-xl bg-brand-100 p-1">
+        {BUSINESSES.map((b) => (
+          <button
+            key={b.id}
+            onClick={() => chooseBiz(b.id)}
+            aria-pressed={biz === b.id}
+            className={cx(
+              'rounded-lg py-2 text-sm font-semibold',
+              biz === b.id ? 'bg-white text-brand-900 ring-1 ring-brand-200' : 'text-brand-800/60',
+            )}
+          >
+            {b.label}
+          </button>
+        ))}
+      </div>
+
       <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
         {RANGES.map((r) => (
-          <button
-            key={r.id}
-            onClick={() => setRangeId(r.id)}
-            aria-pressed={rangeId === r.id}
-              className="chip"
-          >
+          <button key={r.id} onClick={() => setRangeId(r.id)} aria-pressed={rangeId === r.id} className="chip">
             {r.label}
           </button>
         ))}
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        <Card label="Sales" value={peso(stats.total)} big />
-        <Card label={`Gross profit · ${stats.margin}%`} value={peso(stats.profit)} big tone="text-emerald-700" />
+        <Card label={biz === 'cafe' ? 'Cafe sales' : biz === 'sari' ? 'Sari-sari sales' : 'Total sales'} value={peso(stats.total)} big />
+        <Card label={`Gross profit, ${stats.margin}%`} value={peso(stats.profit)} big tone="text-emerald-700" />
         <Card label="Transactions" value={stats.count} />
         <Card label="Average sale" value={peso(stats.avg)} />
         <Card label="Cash collected" value={peso(stats.cashIn)} />
         <Card label="Given as utang" value={peso(stats.credit)} tone="text-amber-700" />
       </div>
+      {missingCost && (
+        <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Some cafe items have no cost yet, so cafe profit is shown too high. Add costs in Inventory.
+        </p>
+      )}
 
       {stats.days.length > 1 && (
         <Section title="Sales per day">
@@ -109,7 +180,7 @@ export default function Reports({ products }) {
                 <div className="h-6 flex-1 overflow-hidden rounded-md bg-brand-50">
                   <div className="h-full rounded-md bg-brand-600" style={{ width: `${(v / maxDay) * 100}%` }} />
                 </div>
-                <span className="w-24 shrink-0 text-right font-semibold">{peso(v)}</span>
+                <span className="w-24 shrink-0 text-right font-semibold tabular-nums">{peso(v)}</span>
               </div>
             ))}
           </div>
@@ -148,37 +219,39 @@ export default function Reports({ products }) {
           {stats.cashiers.map(([name, c]) => (
             <div key={name} className="flex justify-between py-1 text-sm">
               <span>
-                {name} <span className="text-brand-900/50">· {c.count} sales</span>
+                {name} <span className="text-brand-900/50">({c.count} sales)</span>
               </span>
-              <span className="font-semibold">{peso(c.total)}</span>
+              <span className="font-semibold tabular-nums">{peso(c.total)}</span>
             </div>
           ))}
         </Section>
       )}
 
-      <Section title={`Need to restock (${lowStock.length})`}>
-        {lowStock.length === 0 ? (
-          <p className="text-sm text-brand-900/50">All products are above their low-stock level.</p>
-        ) : (
-          lowStock.slice(0, 20).map((p) => (
-            <div key={p.id} className="flex items-center justify-between py-1 text-sm">
-              <span className="truncate">{p.name}</span>
-              <Badge tone={(p.stock || 0) <= 0 ? 'out' : 'low'}>
-                {p.stock || 0} {p.unit || 'pc'}
-              </Badge>
-            </div>
-          ))
-        )}
-      </Section>
+      {biz !== 'cafe' && (
+        <Section title={`Need to restock (${lowStock.length})`}>
+          {lowStock.length === 0 ? (
+            <p className="text-sm text-brand-900/50">All products are above their low-stock level.</p>
+          ) : (
+            lowStock.slice(0, 20).map((p) => (
+              <div key={p.id} className="flex items-center justify-between py-1 text-sm">
+                <span className="truncate">{p.name}</span>
+                <Badge tone={(p.stock || 0) <= 0 ? 'out' : 'low'}>
+                  {p.stock || 0} {p.unit || 'pc'}
+                </Badge>
+              </div>
+            ))
+          )}
+        </Section>
+      )}
 
       <Section title="Transactions">
         {salesQ.loading && !salesQ.data ? (
           <p className="text-sm text-brand-900/50">Loading…</p>
-        ) : all.length === 0 ? (
+        ) : view.length === 0 ? (
           <Empty icon="receipt" title="No sales in this period" />
         ) : (
           <div className="-mx-4 divide-y divide-brand-200/60">
-            {all.map((s) => (
+            {view.map(({ sale: s, items, total, mixed }) => (
               <button
                 key={s.id}
                 onClick={() => setOpenSale(s)}
@@ -186,10 +259,11 @@ export default function Reports({ products }) {
               >
                 <div className="min-w-0 flex-1">
                   <p className={cx('truncate text-sm font-medium', s.voided && 'line-through opacity-50')}>
-                    {s.items.map((i) => `${i.qty}× ${i.name}`).join(', ')}
+                    {items.map((i) => `${i.qty}× ${i.name}`).join(', ')}
                   </p>
                   <p className="text-xs text-brand-900/50">
-                    #{shortId(s.id)} · {fmtDateTime(s.createdAt)} · {s.cashierName}
+                    #{shortId(s.id)}, {fmtDateTime(s.createdAt)}, {s.cashierName}
+                    {mixed && ` (part of a ${peso(s.total)} sale)`}
                   </p>
                 </div>
                 {s.voided ? (
@@ -197,7 +271,9 @@ export default function Reports({ products }) {
                 ) : s.payment === 'utang' ? (
                   <Badge tone="low">Utang</Badge>
                 ) : null}
-                <span className={cx('font-semibold', s.voided && 'line-through opacity-50')}>{peso(s.total)}</span>
+                <span className={cx('font-semibold tabular-nums', s.voided && 'line-through opacity-50')}>
+                  {peso(total)}
+                </span>
               </button>
             ))}
           </div>
