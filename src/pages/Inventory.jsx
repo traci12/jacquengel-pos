@@ -121,6 +121,7 @@ export default function Inventory({ products }) {
         </div>
       )}
 
+      {isOwner && <div className="h-16" />}
       {isOwner && (
         <div className="fixed bottom-[84px] right-4 z-30 sm:right-[calc(50%-23rem)]">
           <Button size="lg" className="rounded-full ring-4 ring-brand-50" onClick={() => setEditing('new')}>

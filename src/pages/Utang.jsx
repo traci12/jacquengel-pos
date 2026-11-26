@@ -63,9 +63,6 @@ export default function Utang() {
             </button>
           ))}
         </div>
-        <Button size="sm" variant="secondary" onClick={() => setAdding(true)}>
-          <Icon name="plus" size={16} /> Customer
-        </Button>
       </div>
 
       {customersQ.loading && !customersQ.data ? (
@@ -96,6 +93,13 @@ export default function Utang() {
           ))}
         </div>
       )}
+
+      <div className="h-16" />
+      <div className="fixed bottom-[84px] right-4 z-30 sm:right-[calc(50%-23rem)]">
+        <Button size="lg" className="rounded-full ring-4 ring-brand-50" onClick={() => setAdding(true)}>
+          <Icon name="plus" /> Add customer
+        </Button>
+      </div>
 
       {open && <CustomerDetail customer={open} onClose={() => setOpenId(null)} />}
       {adding && <AddCustomer onClose={() => setAdding(false)} />}
