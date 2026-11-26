@@ -9,7 +9,7 @@ import { Badge, Button, Field, Icon, Input, Modal, cx, useConfirm, useToast } fr
 export default function Settings() {
   const { isOwner } = useSession()
   return (
-    <div className="space-y-4 px-4 pt-3">
+    <div className="space-y-4 px-4 pt-3 lg:mx-auto lg:max-w-2xl lg:px-6 lg:pt-5">
       {isOwner ? (
         <>
           <StoreSettings />

@@ -3,6 +3,7 @@ import { collection, orderBy, query } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useLive, useSession } from '../lib/data'
 import { createSale } from '../lib/ops'
+import { useMedia, WIDE } from '../lib/useMedia'
 import { peso, r2, shortId, fmtDateTime, tracksStock, isCafeCategory } from '../lib/format'
 import { Badge, Button, Empty, Field, Icon, Input, Modal, ProductImage, SearchBox, cx, useToast } from '../components/ui'
 
@@ -42,6 +43,8 @@ export default function Sell({ products }) {
     }
   })
   const [checkoutOpen, setCheckoutOpen] = useState(false)
+  const wide = useMedia(WIDE)
+  const [saleNo, setSaleNo] = useState(0)
   const [receipt, setReceipt] = useState(null)
 
   useEffect(() => sessionStorage.setItem(CART_KEY, JSON.stringify(cart)), [cart])
@@ -108,13 +111,15 @@ export default function Sell({ products }) {
     })
     setCart({})
     setCheckoutOpen(false)
+    setSaleNo((n) => n + 1)
     setReceipt(sale)
   }
 
   if (products.loading && !products.data) return <p className="p-6 text-center text-brand-900/50">Loading products…</p>
 
   return (
-    <div>
+    <div className="lg:flex lg:items-start">
+      <div className="min-w-0 flex-1">
       <div className="sticky top-[57px] z-20 space-y-2.5 bg-brand-50/95 px-4 pb-2.5 pt-3 backdrop-blur">
         {hasCafe && (
           <div className="grid grid-cols-2 gap-1 rounded-xl bg-brand-100 p-1">
@@ -169,7 +174,7 @@ export default function Sell({ products }) {
           {count > 0 && (
             <p className="px-4 pb-1 text-xs text-brand-900/50">Tap to add · press and hold to remove from cart</p>
           )}
-          <div className="grid grid-cols-2 gap-2.5 px-4 pt-1 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-2.5 px-4 pt-1 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {shown.map((p) => (
               <ProductTile key={p.id} p={p} inCart={cart[p.id] || 0} onAdd={() => add(p)} onRemove={() => remove(p)} />
             ))}
@@ -177,7 +182,22 @@ export default function Sell({ products }) {
         </>
       )}
 
-      {count > 0 && (
+      </div>
+
+      {wide && (
+        <Checkout
+          key={saleNo}
+          inline
+          open
+          lines={lines}
+          total={total}
+          onAdd={add}
+          onClear={() => setCart({})}
+          onConfirm={onCheckout}
+        />
+      )}
+
+      {!wide && count > 0 && (
         <div className="fixed inset-x-0 bottom-[72px] z-30 px-4">
           <div className="mx-auto max-w-3xl">
             <button
@@ -193,7 +213,7 @@ export default function Sell({ products }) {
       )}
 
       <Checkout
-        open={checkoutOpen}
+        open={!wide && checkoutOpen}
         onClose={() => setCheckoutOpen(false)}
         lines={lines}
         total={total}
@@ -271,7 +291,7 @@ function ProductTile({ p, inCart, onAdd, onRemove }) {
       <ProductImage
         product={p}
         iconSize={44}
-        className="pointer-events-none -mx-3 -mt-3 mb-2.5 aspect-square w-[calc(100%+1.5rem)] max-w-none rounded-t-2xl"
+        className="pointer-events-none -mx-3 -mt-3 mb-2.5 aspect-square w-[calc(100%+1.5rem)] max-w-none rounded-t-2xl lg:aspect-[4/3]"
       />
       <span className="line-clamp-2 text-[15px] font-medium leading-snug text-brand-900">{p.name}</span>
       <span className="mt-auto pt-3">
@@ -295,7 +315,7 @@ function ProductTile({ p, inCart, onAdd, onRemove }) {
   )
 }
 
-function Checkout({ open, onClose, lines, total, onAdd, onClear, onConfirm }) {
+function Checkout({ open, inline, onClose, lines, total, onAdd, onClear, onConfirm }) {
   const [payment, setPayment] = useState('cash')
   const [cash, setCash] = useState('')
   const [customer, setCustomer] = useState(null)
@@ -320,12 +340,7 @@ function Checkout({ open, onClose, lines, total, onAdd, onClear, onConfirm }) {
 
   const quick = [...new Set([total, 20, 50, 100, 200, 500, 1000].filter((v) => v >= total))].slice(0, 5)
 
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Checkout"
-      footer={
+  const footer = (
         <div className="space-y-2 pb-2">
           <div className="flex items-center justify-between">
             <span className="text-brand-900/70">Total</span>
@@ -359,8 +374,10 @@ function Checkout({ open, onClose, lines, total, onAdd, onClear, onConfirm }) {
             <Icon name="check" /> Complete sale
           </Button>
         </div>
-      }
-    >
+  )
+
+  const body = (
+    <>
       <div className="space-y-2">
         {lines.map(({ product, qty }) => (
           <div key={product.id} className="flex items-center gap-2 rounded-xl bg-brand-50 p-2">
@@ -452,6 +469,37 @@ function Checkout({ open, onClose, lines, total, onAdd, onClear, onConfirm }) {
           </div>
         </div>
       )}
+    </>
+  )
+
+  if (inline) {
+    return (
+      <aside className="sticky top-[57px] flex h-[calc(100dvh-57px)] w-[380px] shrink-0 flex-col border-l border-brand-200/70 bg-white xl:w-[420px]">
+        <div className="flex items-center justify-between px-5 pb-2 pt-4">
+          <h2 className="text-lg font-semibold tracking-tight">Current sale</h2>
+          {lines.length > 0 && <span className="text-sm text-brand-900/50">{lines.reduce((s, l) => s + l.qty, 0)} items</span>}
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-2">
+          {lines.length ? (
+            body
+          ) : (
+            <div className="flex h-full flex-col items-center justify-center text-center text-brand-900/50">
+              <div className="mb-3 rounded-2xl bg-tint-100 p-4 text-brand-600">
+                <Icon name="cart" size={26} />
+              </div>
+              <p className="font-medium text-brand-900">No items yet</p>
+              <p className="text-sm">Tap products to add them here.</p>
+            </div>
+          )}
+        </div>
+        <div className="border-t border-brand-200/70 px-5 pt-3">{footer}</div>
+      </aside>
+    )
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title="Checkout" footer={footer}>
+      {body}
     </Modal>
   )
 }

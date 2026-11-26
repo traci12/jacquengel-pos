@@ -132,7 +132,7 @@ export default function Reports({ products }) {
   const missingCost = biz !== 'sari' && products.some((p) => isCafeCategory(p.category) && !p.cost)
 
   return (
-    <div className="space-y-4 px-4 pt-3">
+    <div className="space-y-4 px-4 pt-3 lg:mx-auto lg:max-w-5xl lg:px-6 lg:pt-5">
       <div className="grid grid-cols-3 gap-1 rounded-xl bg-brand-100 p-1">
         {BUSINESSES.map((b) => (
           <button
@@ -157,7 +157,7 @@ export default function Reports({ products }) {
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
         <Card label={biz === 'cafe' ? 'Cafe sales' : biz === 'sari' ? 'Sari-sari sales' : 'Total sales'} value={peso(stats.total)} big />
         <Card label={`Gross profit, ${stats.margin}%`} value={peso(stats.profit)} big tone="text-emerald-700" />
         <Card label="Transactions" value={stats.count} />

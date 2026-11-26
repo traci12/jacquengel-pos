@@ -128,9 +128,9 @@ function Shell({ user, profile }) {
 
   return (
     <SessionContext.Provider value={session}>
-      <div className="mx-auto flex min-h-full max-w-3xl flex-col">
+      <div className="mx-auto flex min-h-full max-w-3xl flex-col lg:max-w-none lg:pl-[92px]">
         <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-brand-200/70 bg-white/90 px-4 pb-2.5 pt-[max(env(safe-area-inset-top),0.625rem)] backdrop-blur">
-          <img src="/logo-192.png" alt="" className="h-9 w-9" />
+          <img src="/logo-192.png" alt="" className="h-9 w-9 lg:hidden" />
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-[17px] font-semibold leading-tight tracking-tight">{storeName}</h1>
             <p className="truncate text-xs text-brand-900/50">
@@ -144,7 +144,7 @@ function Shell({ user, profile }) {
           )}
         </header>
 
-        <main className="flex-1 pb-24">
+        <main className="flex-1 pb-24 lg:pb-6">
           {tab === 'sell' && <Sell products={products} />}
           {tab === 'inventory' && <Inventory products={products} />}
           {tab === 'utang' && <Utang />}
@@ -152,15 +152,16 @@ function Shell({ user, profile }) {
           {tab === 'settings' && <Settings />}
         </main>
 
-        <nav className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-brand-200/70 bg-white/95 backdrop-blur">
-          <div className="mx-auto flex max-w-3xl">
+        <nav className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-brand-200/70 bg-white/95 backdrop-blur lg:inset-x-auto lg:left-0 lg:top-0 lg:w-[92px] lg:border-r lg:border-t-0 lg:pb-0 lg:pt-[max(env(safe-area-inset-top),0.75rem)]">
+          <div className="mx-auto flex max-w-3xl lg:flex-col lg:gap-1">
+            <img src="/logo-192.png" alt="" className="mx-auto mb-3 hidden h-11 w-11 lg:block" />
             {tabs.map((t) => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
                 aria-current={tab === t.id ? 'page' : undefined}
                 className={cx(
-                  'flex flex-1 flex-col items-center gap-0.5 pt-2 text-[11px] font-medium',
+                  'flex flex-1 flex-col items-center gap-0.5 pt-2 text-[11px] font-medium lg:flex-none lg:py-2 lg:text-xs',
                   tab === t.id ? 'text-brand-700' : 'text-brand-900/45',
                 )}
               >

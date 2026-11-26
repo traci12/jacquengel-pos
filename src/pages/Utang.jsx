@@ -37,7 +37,7 @@ export default function Utang() {
   const open = customers.find((c) => c.id === openId)
 
   return (
-    <div className="space-y-3 px-4 pt-3">
+    <div className="space-y-3 px-4 pt-3 lg:mx-auto lg:max-w-4xl lg:px-6 lg:pt-5">
       <div className="rounded-2xl bg-amber-50 p-4 ring-1 ring-inset ring-amber-100">
         <p className="text-sm text-amber-900/70">Total utang to collect</p>
         <p className="text-3xl font-semibold tracking-tight text-amber-900">{peso(totalOut)}</p>
@@ -95,7 +95,7 @@ export default function Utang() {
       )}
 
       <div className="h-16" />
-      <div className="fixed bottom-[84px] right-4 z-30 sm:right-[calc(50%-23rem)]">
+      <div className="fixed bottom-[84px] right-4 z-30 sm:right-[calc(50%-23rem)] lg:bottom-6 lg:right-8">
         <Button size="lg" className="rounded-full ring-4 ring-brand-50" onClick={() => setAdding(true)}>
           <Icon name="plus" /> Add customer
         </Button>

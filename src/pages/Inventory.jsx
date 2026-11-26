@@ -99,7 +99,7 @@ export default function Inventory({ products }) {
   )
 
   return (
-    <div className="space-y-3 px-4 pt-3">
+    <div className="space-y-3 px-4 pt-3 lg:mx-auto lg:max-w-4xl lg:px-6 lg:pt-5">
       <div className="grid grid-cols-2 gap-1 rounded-xl bg-brand-100 p-1">
         {[
           ['sari', 'Sari-sari'],
@@ -230,7 +230,7 @@ export default function Inventory({ products }) {
 
       {isOwner && <div className="h-16" />}
       {isOwner && (
-        <div className="fixed bottom-[84px] right-4 z-30 sm:right-[calc(50%-23rem)]">
+        <div className="fixed bottom-[84px] right-4 z-30 sm:right-[calc(50%-23rem)] lg:bottom-6 lg:right-8">
           <Button size="lg" className="rounded-full ring-4 ring-brand-50" onClick={() => setEditing('new')}>
             <Icon name="plus" /> {cafeMode ? 'Add menu item' : 'Add product'}
           </Button>
