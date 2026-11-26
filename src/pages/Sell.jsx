@@ -3,10 +3,12 @@ import { collection, orderBy, query } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useLive, useSession } from '../lib/data'
 import { createSale } from '../lib/ops'
-import { peso, r2, shortId, fmtDateTime, tracksStock } from '../lib/format'
+import { peso, r2, shortId, fmtDateTime, tracksStock, isCafeCategory } from '../lib/format'
 import { Badge, Button, Empty, Field, Icon, Input, Modal, SearchBox, cx, useToast } from '../components/ui'
 
 const CART_KEY = 'cart:v1'
+const MODE_KEY = 'sell-mode'
+const isCafe = (p) => isCafeCategory(p.category)
 
 export default function Sell({ products }) {
   const session = useSession()
@@ -14,6 +16,24 @@ export default function Sell({ products }) {
   const list = products.data || []
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('All')
+  // Each phone remembers whether it sells for the sari-sari store or the cafe.
+  const [mode, setMode] = useState(() => {
+    try {
+      return localStorage.getItem(MODE_KEY) || 'sari'
+    } catch {
+      return 'sari'
+    }
+  })
+  const chooseMode = (m) => {
+    setMode(m)
+    setCategory('All')
+    setSearch('')
+    try {
+      localStorage.setItem(MODE_KEY, m)
+    } catch {
+      /* ignore */
+    }
+  }
   const [cart, setCart] = useState(() => {
     try {
       return JSON.parse(sessionStorage.getItem(CART_KEY)) || {}
@@ -27,22 +47,32 @@ export default function Sell({ products }) {
   useEffect(() => sessionStorage.setItem(CART_KEY, JSON.stringify(cart)), [cart])
 
   const byId = useMemo(() => new Map(list.map((p) => [p.id, p])), [list])
-  const categories = useMemo(() => ['All', ...new Set(list.map((p) => p.category || 'Others'))], [list])
+  const hasCafe = useMemo(() => list.some(isCafe), [list])
+  const modeList = useMemo(
+    () => (hasCafe ? list.filter((p) => (mode === 'cafe' ? isCafe(p) : !isCafe(p))) : list),
+    [list, hasCafe, mode],
+  )
+  const categories = useMemo(
+    () => ['All', ...new Set(modeList.map((p) => p.category || 'Others'))],
+    [modeList],
+  )
+  const activeCategory = categories.includes(category) ? category : 'All'
 
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return list.filter(
+    return modeList.filter(
       (p) =>
-        (category === 'All' || (p.category || 'Others') === category) &&
+        (activeCategory === 'All' || (p.category || 'Others') === activeCategory) &&
         (!q || p.name.toLowerCase().includes(q) || (p.barcode && p.barcode.includes(q))),
     )
-  }, [list, search, category])
+  }, [modeList, search, activeCategory])
 
   const lines = Object.entries(cart)
     .map(([id, qty]) => ({ product: byId.get(id), qty }))
     .filter((l) => l.product && l.qty > 0)
   const total = r2(lines.reduce((s, l) => s + l.product.price * l.qty, 0))
   const count = lines.reduce((s, l) => s + l.qty, 0)
+  const countIn = (m) => lines.filter((l) => (m === 'cafe' ? isCafe(l.product) : !isCafe(l.product))).reduce((s, l) => s + l.qty, 0)
 
   const add = (p, n = 1) => {
     const current = cart[p.id] || 0
@@ -86,19 +116,46 @@ export default function Sell({ products }) {
   return (
     <div>
       <div className="sticky top-[57px] z-20 space-y-2.5 bg-brand-50/95 px-4 pb-2.5 pt-3 backdrop-blur">
-        <SearchBox value={search} onChange={setSearch} placeholder="Search product or barcode…" />
-        <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
-          {categories.map((c) => (
-            <button
-              key={c}
-              onClick={() => setCategory(c)}
-              aria-pressed={category === c}
-              className="chip"
-            >
-              {c}
-            </button>
-          ))}
-        </div>
+        {hasCafe && (
+          <div className="grid grid-cols-2 gap-1 rounded-xl bg-brand-100 p-1">
+            {[
+              ['sari', 'Sari-sari'],
+              ['cafe', 'Cafe'],
+            ].map(([m, label]) => {
+              const n = countIn(m)
+              return (
+                <button
+                  key={m}
+                  onClick={() => chooseMode(m)}
+                  aria-pressed={mode === m}
+                  className={cx(
+                    'flex items-center justify-center gap-2 rounded-lg py-2 text-sm font-semibold',
+                    mode === m ? 'bg-white text-brand-900 ring-1 ring-brand-200' : 'text-brand-800/60',
+                  )}
+                >
+                  {label}
+                  {n > 0 && (
+                    <span className="rounded-full bg-brand-700 px-1.5 text-xs font-semibold leading-5 text-white">{n}</span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        )}
+        <SearchBox
+          value={search}
+          onChange={setSearch}
+          placeholder={hasCafe && mode === 'cafe' ? 'Search cafe menu…' : 'Search product or barcode…'}
+        />
+        {categories.length > 2 && (
+          <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
+            {categories.map((c) => (
+              <button key={c} onClick={() => setCategory(c)} aria-pressed={activeCategory === c} className="chip">
+                {c}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {list.length === 0 ? (
