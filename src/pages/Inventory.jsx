@@ -454,6 +454,7 @@ function StarterImport({ existing, onClose }) {
   const available = STARTER_PRODUCTS.filter((p) => !have.has(p.name.toLowerCase()))
   const [picked, setPicked] = useState(() => new Set(available.map((p) => p.name)))
   const [stock, setStock] = useState('0')
+  const pickedCounted = available.filter((p) => picked.has(p.name) && !p.madeToOrder).length
   const groups = useMemo(() => {
     const m = new Map()
     for (const p of available) m.set(p.category, [...(m.get(p.category) || []), p])
@@ -483,9 +484,22 @@ function StarterImport({ existing, onClose }) {
       footer={
         available.length ? (
           <div className="space-y-2 pb-2">
-            <Field label="Starting stock for each" hint="Leave 0 and use Restock / Stock count later, or set a number to start selling right away.">
-              <Input type="number" inputMode="numeric" min="0" value={stock} onChange={(e) => setStock(e.target.value)} />
-            </Field>
+            {pickedCounted > 0 ? (
+              <Field
+                label={`Starting stock for each of the ${pickedCounted} counted item${pickedCounted === 1 ? '' : 's'}`}
+                hint={
+                  pickedCounted < picked.size
+                    ? 'Cafe (made-to-order) items have no stock, so this doesn’t apply to them.'
+                    : 'Leave 0 and use Restock / Stock count later, or set a number to start selling right away.'
+                }
+              >
+                <Input type="number" inputMode="numeric" min="0" value={stock} onChange={(e) => setStock(e.target.value)} />
+              </Field>
+            ) : (
+              picked.size > 0 && (
+                <p className="text-sm text-brand-900/60">These are made to order, so no stock is needed.</p>
+              )
+            )}
             <Button size="lg" className="w-full" disabled={!picked.size} onClick={submit}>
               Add {picked.size} product{picked.size === 1 ? '' : 's'}
             </Button>
