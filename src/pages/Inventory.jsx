@@ -65,13 +65,18 @@ export default function Inventory({ products }) {
           <button
             key={k}
             onClick={() => setFilter(k)}
-            className={cx(
-              'rounded-full px-3.5 py-1.5 text-sm font-semibold',
-              filter === k ? 'bg-brand-700 text-white' : 'bg-white text-brand-800 ring-1 ring-brand-200',
-              k === 'low' && counts.low > 0 && filter !== k && 'text-amber-700 ring-amber-300',
-              k === 'out' && counts.out > 0 && filter !== k && 'text-red-700 ring-red-300',
-            )}
+            aria-pressed={filter === k}
+            className="chip inline-flex items-center gap-1.5"
           >
+            {k !== 'all' && (
+              <span
+                className={cx(
+                  'h-2 w-2 rounded-full',
+                  k === 'low' ? 'bg-amber-400' : 'bg-red-400',
+                  !(k === 'low' ? counts.low : counts.out) && 'opacity-30',
+                )}
+              />
+            )}
             {l}
           </button>
         ))}
@@ -93,7 +98,7 @@ export default function Inventory({ products }) {
       ) : shown.length === 0 ? (
         <Empty icon="search" title="Nothing here" />
       ) : (
-        <div className="divide-y divide-brand-100 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-brand-100">
+        <div className="divide-y divide-brand-200/60 overflow-hidden rounded-2xl bg-white ring-1 ring-brand-200/70">
           {shown.map((p) => (
             <button
               key={p.id}
@@ -118,7 +123,7 @@ export default function Inventory({ products }) {
 
       {isOwner && (
         <div className="fixed bottom-[84px] right-4 z-30 sm:right-[calc(50%-23rem)]">
-          <Button size="lg" className="rounded-full shadow-xl" onClick={() => setEditing('new')}>
+          <Button size="lg" className="rounded-full ring-4 ring-brand-50" onClick={() => setEditing('new')}>
             <Icon name="plus" /> Add product
           </Button>
         </div>
@@ -145,9 +150,9 @@ export default function Inventory({ products }) {
 
 function Stat({ label, value, tone }) {
   return (
-    <div className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-brand-100">
+    <div className="rounded-2xl bg-white p-3 ring-1 ring-brand-200/70">
       <p className="text-xs font-medium text-brand-900/55">{label}</p>
-      <p className={cx('text-lg font-bold', tone || 'text-brand-900')}>{value}</p>
+      <p className={cx('text-lg font-semibold', tone || 'text-brand-900')}>{value}</p>
     </div>
   )
 }
@@ -213,7 +218,7 @@ function ProductEditor({ product, categories, onClose }) {
       }
     >
       {!isNew && (
-        <div className="mb-4 grid grid-cols-3 gap-1 rounded-2xl bg-brand-100 p-1 text-sm">
+        <div className="mb-4 grid grid-cols-3 gap-1 rounded-xl bg-brand-100 p-1 text-sm">
           {[
             ['details', 'Details'],
             ['restock', 'Restock'],
@@ -224,7 +229,7 @@ function ProductEditor({ product, categories, onClose }) {
               onClick={() => setMode(k)}
               className={cx(
                 'rounded-xl py-2 font-semibold',
-                mode === k ? 'bg-white text-brand-800 shadow' : 'text-brand-800/60',
+                mode === k ? 'bg-white text-brand-900 ring-1 ring-brand-200' : 'text-brand-800/60',
               )}
             >
               {l}
@@ -371,7 +376,7 @@ function StockHistory({ productId }) {
   return (
     <div className="pt-2">
       <p className="mb-1 text-sm font-semibold text-brand-900/80">Recent stock changes</p>
-      <div className="divide-y divide-brand-100 rounded-xl bg-brand-50 text-sm">
+      <div className="divide-y divide-brand-200/60 rounded-xl bg-brand-50 text-sm">
         {moves.map((m) => (
           <div key={m.id} className="flex items-center justify-between px-3 py-2">
             <span>
@@ -381,7 +386,7 @@ function StockHistory({ productId }) {
                 {fmtDateTime(m.createdAt)} · {m.byName}
               </span>
             </span>
-            <span className={cx('font-bold', m.delta < 0 ? 'text-red-600' : 'text-emerald-700')}>
+            <span className={cx('font-semibold', m.delta < 0 ? 'text-red-600' : 'text-emerald-700')}>
               {m.delta > 0 ? '+' : ''}
               {m.delta}
             </span>
@@ -459,7 +464,7 @@ function StarterImport({ existing, onClose }) {
                     {all ? 'Untick all' : 'Tick all'}
                   </button>
                 </div>
-                <div className="divide-y divide-brand-100 rounded-xl ring-1 ring-brand-100">
+                <div className="divide-y divide-brand-200/60 rounded-xl ring-1 ring-brand-200/70">
                   {items.map((p) => (
                     <label key={p.name} className="flex cursor-pointer items-center gap-3 px-3 py-2">
                       <input

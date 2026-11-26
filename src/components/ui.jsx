@@ -4,15 +4,15 @@ const cx = (...c) => c.filter(Boolean).join(' ')
 
 export function Button({ variant = 'primary', size = 'md', className, ...props }) {
   const base =
-    'inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition active:scale-[.98] disabled:opacity-50 disabled:pointer-events-none'
-  const sizes = { sm: 'px-3 py-1.5 text-sm', md: 'px-4 py-2.5', lg: 'px-5 py-3.5 text-lg' }
+    'inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-colors active:opacity-80 disabled:opacity-40 disabled:pointer-events-none'
+  const sizes = { sm: 'px-3 py-1.5 text-sm', md: 'px-4 py-2.5', lg: 'px-5 py-3.5 text-base' }
   const variants = {
     primary: 'bg-brand-700 text-white hover:bg-brand-800',
-    secondary: 'bg-brand-100 text-brand-800 hover:bg-brand-200',
-    outline: 'border border-brand-300 text-brand-800 bg-white hover:bg-brand-50',
-    danger: 'bg-red-600 text-white hover:bg-red-700',
+    secondary: 'bg-tint-100 text-brand-800 hover:bg-tint-200',
+    outline: 'bg-white text-brand-900 ring-1 ring-inset ring-brand-200 hover:bg-brand-50',
+    danger: 'bg-[#b5524a] text-white hover:bg-[#9e463f]',
     ghost: 'text-brand-700 hover:bg-brand-100',
-    success: 'bg-emerald-600 text-white hover:bg-emerald-700',
+    success: 'bg-[#4f7a63] text-white hover:bg-[#436a55]',
   }
   return <button className={cx(base, sizes[size], variants[variant], className)} {...props} />
 }
@@ -20,7 +20,7 @@ export function Button({ variant = 'primary', size = 'md', className, ...props }
 export function Field({ label, hint, children, className }) {
   return (
     <label className={cx('block', className)}>
-      {label && <span className="mb-1 block text-sm font-medium text-brand-900/80">{label}</span>}
+      {label && <span className="mb-1.5 block text-sm font-medium text-brand-900/70">{label}</span>}
       {children}
       {hint && <span className="mt-1 block text-xs text-brand-900/50">{hint}</span>}
     </label>
@@ -54,22 +54,25 @@ export function Modal({ open, onClose, title, children, footer, wide }) {
 
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-brand-900/25 sm:items-center" onClick={onClose}>
       <div
+        role="dialog"
+        aria-modal="true"
         className={cx(
-          'animate-sheet flex max-h-[92dvh] w-full flex-col rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl',
+          'animate-sheet flex max-h-[92dvh] w-full flex-col rounded-t-[1.75rem] bg-white sm:rounded-3xl',
           wide ? 'sm:max-w-2xl' : 'sm:max-w-md',
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-brand-100 px-5 py-4">
-          <h2 className="font-display text-lg font-bold text-brand-900">{title}</h2>
-          <button onClick={onClose} className="rounded-full p-1.5 text-brand-700 hover:bg-brand-100" aria-label="Close">
+        <div className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-brand-200 sm:hidden" />
+        <div className="flex items-center justify-between px-5 pb-2 pt-3">
+          <h2 className="text-lg font-semibold tracking-tight text-brand-900">{title}</h2>
+          <button onClick={onClose} className="rounded-full bg-brand-100 p-1.5 text-brand-900/60 hover:bg-brand-200" aria-label="Close">
             <Icon name="x" />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
-        {footer && <div className="pb-safe border-t border-brand-100 px-5 pt-3">{footer}</div>}
+        <div className="flex-1 overflow-y-auto px-5 py-3">{children}</div>
+        {footer && <div className="pb-safe border-t border-brand-200/70 px-5 pt-3">{footer}</div>}
       </div>
     </div>
   )
@@ -78,8 +81,8 @@ export function Modal({ open, onClose, title, children, footer, wide }) {
 export function Empty({ icon = 'box', title, children }) {
   return (
     <div className="flex flex-col items-center px-6 py-14 text-center text-brand-900/60">
-      <div className="mb-3 rounded-full bg-brand-100 p-4 text-brand-600">
-        <Icon name={icon} size={28} />
+      <div className="mb-3 rounded-2xl bg-tint-100 p-4 text-brand-600">
+        <Icon name={icon} size={26} />
       </div>
       <p className="font-semibold text-brand-900">{title}</p>
       {children && <div className="mt-1 text-sm">{children}</div>}
@@ -89,13 +92,15 @@ export function Empty({ icon = 'box', title, children }) {
 
 export function Badge({ tone = 'neutral', children }) {
   const tones = {
-    neutral: 'bg-brand-100 text-brand-800',
-    low: 'bg-amber-100 text-amber-800',
-    out: 'bg-red-100 text-red-700',
-    ok: 'bg-emerald-100 text-emerald-700',
-    info: 'bg-sky-100 text-sky-700',
+    neutral: 'bg-brand-100 text-brand-900/70',
+    low: 'bg-amber-50 text-amber-700',
+    out: 'bg-red-50 text-red-700',
+    ok: 'bg-emerald-50 text-emerald-700',
+    info: 'bg-tint-100 text-brand-700',
   }
-  return <span className={cx('rounded-full px-2 py-0.5 text-xs font-semibold', tones[tone])}>{children}</span>
+  return (
+    <span className={cx('whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium', tones[tone])}>{children}</span>
+  )
 }
 
 export function SearchBox({ value, onChange, placeholder = 'Search…', autoFocus }) {
@@ -178,8 +183,8 @@ export function ToastProvider({ children }) {
           <div
             key={t.id}
             className={cx(
-              'animate-sheet pointer-events-auto max-w-sm rounded-2xl px-4 py-3 text-sm font-medium shadow-lg',
-              t.tone === 'error' ? 'bg-red-600 text-white' : 'bg-brand-900 text-white',
+              'animate-sheet pointer-events-auto max-w-sm rounded-xl px-4 py-2.5 text-sm font-medium',
+              t.tone === 'error' ? 'bg-[#b5524a] text-white' : 'bg-brand-900 text-white',
             )}
           >
             {t.message}

@@ -25,9 +25,9 @@ export default function Settings() {
 
 function Section({ title, children, action }) {
   return (
-    <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-brand-100">
+    <section className="rounded-2xl bg-white p-4 ring-1 ring-brand-200/70">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="font-display text-base font-bold text-brand-900">{title}</h3>
+        <h3 className="text-[15px] font-semibold tracking-tight text-brand-900">{title}</h3>
         {action}
       </div>
       {children}
@@ -119,7 +119,7 @@ function Staff() {
         </Button>
       }
     >
-      <div className="divide-y divide-brand-100">
+      <div className="divide-y divide-brand-200/60">
         {users.map((u) => (
           <div key={u.id} className="py-2.5">
             <div className="flex items-center gap-3">
@@ -216,7 +216,7 @@ function AddStaff({ onClose }) {
       }
     >
       <form id="cashier-form" onSubmit={submit} className="space-y-3">
-        <div className="grid grid-cols-2 gap-2 rounded-2xl bg-brand-100 p-1">
+        <div className="grid grid-cols-2 gap-2 rounded-xl bg-brand-100 p-1">
           {[
             ['cashier', 'Cashier'],
             ['owner', 'Owner'],
@@ -227,7 +227,7 @@ function AddStaff({ onClose }) {
               onClick={() => setF({ ...f, role: k })}
               className={cx(
                 'rounded-xl py-2 font-semibold',
-                f.role === k ? 'bg-white text-brand-800 shadow' : 'text-brand-800/60',
+                f.role === k ? 'bg-white text-brand-900 ring-1 ring-brand-200' : 'text-brand-800/60',
               )}
             >
               {l}
@@ -267,15 +267,15 @@ function MySalesToday() {
       <div className="grid grid-cols-3 gap-2 text-center">
         <div>
           <p className="text-xs text-brand-900/55">Sales</p>
-          <p className="font-bold">{mine.length}</p>
+          <p className="font-semibold">{mine.length}</p>
         </div>
         <div>
           <p className="text-xs text-brand-900/55">Total</p>
-          <p className="font-bold">{peso(total)}</p>
+          <p className="font-semibold">{peso(total)}</p>
         </div>
         <div>
           <p className="text-xs text-brand-900/55">Cash in drawer</p>
-          <p className="font-bold text-emerald-700">{peso(total - credit)}</p>
+          <p className="font-semibold text-emerald-700">{peso(total - credit)}</p>
         </div>
       </div>
     </Section>

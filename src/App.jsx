@@ -30,7 +30,7 @@ function useOnline() {
 function Splash({ children }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 p-6 text-center">
-      <img src="/logo-192.png" alt="" className="h-24 w-24 animate-pulse" />
+      <img src="/logo-192.png" alt="" className="h-20 w-20 animate-pulse" />
       {children}
     </div>
   )
@@ -129,16 +129,16 @@ function Shell({ user, profile }) {
   return (
     <SessionContext.Provider value={session}>
       <div className="mx-auto flex min-h-full max-w-3xl flex-col">
-        <header className="sticky top-0 z-30 flex items-center gap-3 bg-brand-700 px-4 pb-3 pt-[max(env(safe-area-inset-top),0.75rem)] text-white shadow-md">
-          <img src="/logo-192.png" alt="" className="h-9 w-9 rounded-full bg-white/10" />
+        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-brand-200/70 bg-white/90 px-4 pb-2.5 pt-[max(env(safe-area-inset-top),0.625rem)] backdrop-blur">
+          <img src="/logo-192.png" alt="" className="h-9 w-9" />
           <div className="min-w-0 flex-1">
-            <h1 className="truncate font-display text-lg font-bold leading-tight">{storeName}</h1>
-            <p className="truncate text-xs text-brand-200">
-              {profile.name} · {isOwner ? 'Owner' : 'Cashier'}
+            <h1 className="truncate text-[17px] font-semibold leading-tight tracking-tight">{storeName}</h1>
+            <p className="truncate text-xs text-brand-900/50">
+              {profile.name}, {isOwner ? 'owner' : 'cashier'}
             </p>
           </div>
           {!online && (
-            <span className="flex items-center gap-1 rounded-full bg-amber-400 px-2.5 py-1 text-xs font-bold text-amber-950">
+            <span className="flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 ring-1 ring-inset ring-amber-200">
               <Icon name="wifiOff" size={14} /> Offline
             </span>
           )}
@@ -152,18 +152,19 @@ function Shell({ user, profile }) {
           {tab === 'settings' && <Settings />}
         </main>
 
-        <nav className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-brand-200 bg-white/95 backdrop-blur">
+        <nav className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-brand-200/70 bg-white/95 backdrop-blur">
           <div className="mx-auto flex max-w-3xl">
             {tabs.map((t) => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
+                aria-current={tab === t.id ? 'page' : undefined}
                 className={cx(
-                  'flex flex-1 flex-col items-center gap-0.5 pt-2 text-[11px] font-semibold',
-                  tab === t.id ? 'text-brand-700' : 'text-brand-900/40',
+                  'flex flex-1 flex-col items-center gap-0.5 pt-2 text-[11px] font-medium',
+                  tab === t.id ? 'text-brand-700' : 'text-brand-900/45',
                 )}
               >
-                <span className={cx('rounded-full px-4 py-1', tab === t.id && 'bg-brand-100')}>
+                <span className={cx('rounded-full px-4 py-1 transition-colors', tab === t.id && 'bg-tint-100')}>
                   <Icon name={t.icon} size={22} />
                 </span>
                 {t.label}

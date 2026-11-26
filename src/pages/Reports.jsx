@@ -83,10 +83,8 @@ export default function Reports({ products }) {
           <button
             key={r.id}
             onClick={() => setRangeId(r.id)}
-            className={cx(
-              'shrink-0 rounded-full px-3.5 py-1.5 text-sm font-semibold',
-              rangeId === r.id ? 'bg-brand-700 text-white' : 'bg-white text-brand-800 ring-1 ring-brand-200',
-            )}
+            aria-pressed={rangeId === r.id}
+              className="chip"
           >
             {r.label}
           </button>
@@ -122,7 +120,7 @@ export default function Reports({ products }) {
         {stats.best.length === 0 ? (
           <p className="text-sm text-brand-900/50">No sales in this period.</p>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full text-sm tabular-nums">
             <thead>
               <tr className="text-left text-xs text-brand-900/50">
                 <th className="pb-1 font-medium">Product</th>
@@ -131,7 +129,7 @@ export default function Reports({ products }) {
                 <th className="pb-1 text-right font-medium">Profit</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-brand-100">
+            <tbody className="divide-y divide-brand-200/60">
               {stats.best.map((p) => (
                 <tr key={p.name}>
                   <td className="max-w-[9rem] truncate py-1.5 pr-2">{p.name}</td>
@@ -179,7 +177,7 @@ export default function Reports({ products }) {
         ) : all.length === 0 ? (
           <Empty icon="receipt" title="No sales in this period" />
         ) : (
-          <div className="-mx-4 divide-y divide-brand-100">
+          <div className="-mx-4 divide-y divide-brand-200/60">
             {all.map((s) => (
               <button
                 key={s.id}
@@ -199,7 +197,7 @@ export default function Reports({ products }) {
                 ) : s.payment === 'utang' ? (
                   <Badge tone="low">Utang</Badge>
                 ) : null}
-                <span className={cx('font-bold', s.voided && 'line-through opacity-50')}>{peso(s.total)}</span>
+                <span className={cx('font-semibold', s.voided && 'line-through opacity-50')}>{peso(s.total)}</span>
               </button>
             ))}
           </div>
@@ -219,17 +217,17 @@ export default function Reports({ products }) {
 
 function Card({ label, value, tone, big }) {
   return (
-    <div className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-brand-100">
+    <div className="rounded-2xl bg-white p-3 ring-1 ring-brand-200/70">
       <p className="text-xs font-medium text-brand-900/55">{label}</p>
-      <p className={cx('font-bold', big ? 'text-2xl' : 'text-lg', tone || 'text-brand-900')}>{value}</p>
+      <p className={cx('font-semibold', big ? 'text-2xl' : 'text-lg', tone || 'text-brand-900')}>{value}</p>
     </div>
   )
 }
 
 function Section({ title, children }) {
   return (
-    <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-brand-100">
-      <h3 className="mb-2 font-display text-base font-bold text-brand-900">{title}</h3>
+    <section className="rounded-2xl bg-white p-4 ring-1 ring-brand-200/70">
+      <h3 className="mb-2 text-[15px] font-semibold tracking-tight text-brand-900">{title}</h3>
       {children}
     </section>
   )
@@ -259,7 +257,7 @@ function SaleDetail({ sale, products, onClose }) {
           Voided{sale.voidReason ? `: ${sale.voidReason}` : ''}
         </p>
       )}
-      <div className="mt-3 space-y-1 rounded-2xl bg-brand-50 p-4 font-mono text-sm">
+      <div className="mt-3 space-y-1 rounded-2xl bg-brand-50 p-4 font-mono text-sm tabular-nums">
         {sale.items.map((i) => (
           <div key={i.productId} className="flex justify-between gap-2">
             <span className="truncate">
@@ -268,7 +266,7 @@ function SaleDetail({ sale, products, onClose }) {
             <span>{peso(i.subtotal)}</span>
           </div>
         ))}
-        <div className="flex justify-between border-t border-dashed border-brand-300 pt-2 font-bold">
+        <div className="flex justify-between border-t border-dashed border-brand-300 pt-2 font-semibold">
           <span>TOTAL</span>
           <span>{peso(sale.total)}</span>
         </div>

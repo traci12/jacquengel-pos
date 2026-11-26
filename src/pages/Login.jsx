@@ -28,9 +28,9 @@ export default function Login() {
   const needsSetup = !setup.loading && !setup.data?.done && !setup.error
 
   return (
-    <div className="flex min-h-full flex-col items-center justify-center bg-gradient-to-b from-brand-700 to-brand-900 px-5 py-10">
-      <img src="/logo-512.png" alt="JacqueNgel" className="mb-6 h-32 w-32 drop-shadow-xl" />
-      <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
+    <div className="flex min-h-full flex-col items-center justify-center bg-brand-50 px-5 py-10">
+      <img src="/logo-512.png" alt="JacqueNgel" className="mb-6 h-32 w-32 drop-" />
+      <div className="w-full max-w-sm rounded-3xl bg-white p-6 ring-1 ring-brand-200/70">
         {setup.loading ? (
           <p className="py-8 text-center text-brand-900/60">Loading…</p>
         ) : needsSetup ? (
@@ -39,7 +39,7 @@ export default function Login() {
           <SignInForm />
         )}
       </div>
-      <p className="mt-6 text-xs text-brand-200/70">JacqueNgel POS · Sari-sari store system</p>
+      <p className="mt-6 text-xs text-brand-900/40">JacqueNgel POS for sari-sari stores</p>
     </div>
   )
 }
@@ -77,7 +77,7 @@ function SignInForm() {
   return (
     <form onSubmit={submit} className="space-y-4">
       <div>
-        <h2 className="font-display text-2xl font-bold text-brand-900">Welcome back</h2>
+        <h2 className="text-2xl font-semibold tracking-tight text-brand-900">Welcome back</h2>
         <p className="text-sm text-brand-900/60">Sign in to start selling.</p>
       </div>
       <Field label="Email">
@@ -148,7 +148,7 @@ function SetupForm() {
   return (
     <form onSubmit={submit} className="space-y-4">
       <div>
-        <h2 className="font-display text-2xl font-bold text-brand-900">Set up your store</h2>
+        <h2 className="text-2xl font-semibold tracking-tight text-brand-900">Set up your store</h2>
         <p className="text-sm text-brand-900/60">
           One-time setup. This creates the <b>owner</b> account. You can add cashiers later in Settings.
         </p>

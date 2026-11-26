@@ -25,9 +25,9 @@ export default function AuthAction() {
   const code = params.get('oobCode')
 
   return (
-    <div className="flex min-h-full flex-col items-center justify-center bg-gradient-to-b from-brand-700 to-brand-900 px-5 py-10">
-      <img src="/logo-512.png" alt="JacqueNgel" className="mb-6 h-28 w-28 drop-shadow-xl" />
-      <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
+    <div className="flex min-h-full flex-col items-center justify-center bg-brand-50 px-5 py-10">
+      <img src="/logo-512.png" alt="JacqueNgel" className="mb-6 h-28 w-28 drop-" />
+      <div className="w-full max-w-sm rounded-3xl bg-white p-6 ring-1 ring-brand-200/70">
         {mode === 'resetPassword' && code ? (
           <ResetPassword code={code} />
         ) : mode === 'verifyEmail' && code ? (
@@ -43,7 +43,7 @@ export default function AuthAction() {
 function Message({ title, text, ok }) {
   return (
     <div className="space-y-4 text-center">
-      <h2 className={`font-display text-2xl font-bold ${ok ? 'text-emerald-700' : 'text-brand-900'}`}>{title}</h2>
+      <h2 className={`text-2xl font-semibold tracking-tight ${ok ? 'text-emerald-700' : 'text-brand-900'}`}>{title}</h2>
       <p className="text-brand-900/70">{text}</p>
       <Button size="lg" className="w-full" onClick={goHome}>
         Go to sign in
@@ -88,7 +88,7 @@ function ResetPassword({ code }) {
   return (
     <form onSubmit={submit} className="space-y-4">
       <div>
-        <h2 className="font-display text-2xl font-bold text-brand-900">Set a new password</h2>
+        <h2 className="text-2xl font-semibold tracking-tight text-brand-900">Set a new password</h2>
         <p className="text-sm text-brand-900/60">for {email}</p>
       </div>
       <Field label="New password" hint="At least 6 characters">

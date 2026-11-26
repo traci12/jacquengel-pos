@@ -57,7 +57,7 @@ export default function InstallBanner() {
 
   return (
     <div className="fixed inset-x-0 top-0 z-[55] px-3 pt-[max(env(safe-area-inset-top),0.5rem)]">
-      <div className="animate-sheet mx-auto max-w-md rounded-2xl bg-white p-3 shadow-2xl ring-1 ring-brand-200">
+      <div className="animate-sheet mx-auto max-w-md rounded-2xl bg-white p-3 ring-1 ring-brand-200">
         <div className="flex items-center gap-3">
           <img src="/logo-192.png" alt="" className="h-11 w-11 shrink-0" />
           <div className="min-w-0 flex-1">

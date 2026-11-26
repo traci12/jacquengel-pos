@@ -38,10 +38,10 @@ export default function Utang() {
 
   return (
     <div className="space-y-3 px-4 pt-3">
-      <div className="rounded-2xl bg-gradient-to-br from-brand-700 to-brand-900 p-4 text-white shadow">
-        <p className="text-sm text-brand-200">Total utang to collect</p>
-        <p className="text-3xl font-bold">{peso(totalOut)}</p>
-        <p className="text-sm text-brand-200">
+      <div className="rounded-2xl bg-amber-50 p-4 ring-1 ring-inset ring-amber-100">
+        <p className="text-sm text-amber-900/70">Total utang to collect</p>
+        <p className="text-3xl font-semibold tracking-tight text-amber-900">{peso(totalOut)}</p>
+        <p className="text-sm text-amber-900/60">
           {owing.length} customer{owing.length === 1 ? '' : 's'} with a balance
         </p>
       </div>
@@ -56,10 +56,8 @@ export default function Utang() {
             <button
               key={l}
               onClick={() => setOnlyOwing(k)}
-              className={cx(
-                'rounded-full px-3.5 py-1.5 text-sm font-semibold',
-                onlyOwing === k ? 'bg-brand-700 text-white' : 'bg-white text-brand-800 ring-1 ring-brand-200',
-              )}
+              aria-pressed={onlyOwing === k}
+              className="chip"
             >
               {l}
             </button>
@@ -77,21 +75,21 @@ export default function Utang() {
           {onlyOwing ? 'No one owes the store right now.' : 'Customers are added when you sell on utang.'}
         </Empty>
       ) : (
-        <div className="divide-y divide-brand-100 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-brand-100">
+        <div className="divide-y divide-brand-200/60 overflow-hidden rounded-2xl bg-white ring-1 ring-brand-200/70">
           {shown.map((c) => (
             <button
               key={c.id}
               onClick={() => setOpenId(c.id)}
               className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-brand-50"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-100 font-bold text-brand-700">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-tint-100 font-semibold text-brand-700">
                 {c.name.slice(0, 1).toUpperCase()}
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-semibold text-brand-900">{c.name}</span>
                 <span className="block text-xs text-brand-900/50">Last activity {fmtDateTime(c.lastActivity)}</span>
               </span>
-              <span className={cx('font-bold', c.balance > 0 ? 'text-amber-700' : 'text-brand-900/40')}>
+              <span className={cx('font-semibold', c.balance > 0 ? 'text-amber-700' : 'text-brand-900/40')}>
                 {peso(c.balance)}
               </span>
             </button>
@@ -215,7 +213,7 @@ function CustomerDetail({ customer, onClose }) {
     <Modal open onClose={onClose} title={customer.name}>
       <div className="rounded-2xl bg-amber-50 p-4 text-center">
         <p className="text-sm text-amber-900/70">Current balance</p>
-        <p className={cx('text-3xl font-bold', customer.balance > 0 ? 'text-amber-800' : 'text-emerald-700')}>
+        <p className={cx('text-3xl font-semibold', customer.balance > 0 ? 'text-amber-800' : 'text-emerald-700')}>
           {peso(customer.balance)}
         </p>
         {customer.phone && (
@@ -254,7 +252,7 @@ function CustomerDetail({ customer, onClose }) {
         {ledger.length === 0 ? (
           <p className="text-sm text-brand-900/50">No transactions yet.</p>
         ) : (
-          <div className="divide-y divide-brand-100 rounded-xl bg-brand-50 text-sm">
+          <div className="divide-y divide-brand-200/60 rounded-xl bg-brand-50 text-sm">
             {ledger.map((l) => (
               <div key={l.id} className="flex items-start justify-between gap-3 px-3 py-2">
                 <div className="min-w-0">
@@ -264,7 +262,7 @@ function CustomerDetail({ customer, onClose }) {
                     {fmtDateTime(l.createdAt)} · {l.byName}
                   </p>
                 </div>
-                <span className={cx('shrink-0 font-bold', l.type === 'credit' ? 'text-amber-700' : 'text-emerald-700')}>
+                <span className={cx('shrink-0 font-semibold', l.type === 'credit' ? 'text-amber-700' : 'text-emerald-700')}>
                   {l.type === 'credit' ? '+' : '−'}
                   {peso(l.amount)}
                 </span>

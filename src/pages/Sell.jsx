@@ -85,17 +85,15 @@ export default function Sell({ products }) {
 
   return (
     <div>
-      <div className="sticky top-[60px] z-20 space-y-2 bg-brand-50/95 px-4 pb-2 pt-3 backdrop-blur">
+      <div className="sticky top-[57px] z-20 space-y-2.5 bg-brand-50/95 px-4 pb-2.5 pt-3 backdrop-blur">
         <SearchBox value={search} onChange={setSearch} placeholder="Search product or barcode…" />
         <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
           {categories.map((c) => (
             <button
               key={c}
               onClick={() => setCategory(c)}
-              className={cx(
-                'shrink-0 rounded-full px-3.5 py-1.5 text-sm font-semibold',
-                category === c ? 'bg-brand-700 text-white' : 'bg-white text-brand-800 ring-1 ring-brand-200',
-              )}
+              aria-pressed={category === c}
+              className="chip"
             >
               {c}
             </button>
@@ -127,11 +125,11 @@ export default function Sell({ products }) {
           <div className="mx-auto max-w-3xl">
             <button
               onClick={() => setCheckoutOpen(true)}
-              className="flex w-full items-center gap-3 rounded-2xl bg-brand-900 px-4 py-3.5 text-white shadow-xl active:scale-[.99]"
+              className="flex w-full items-center gap-3 rounded-2xl bg-brand-700 px-4 py-3.5 text-white ring-4 ring-brand-50 active:opacity-90"
             >
-              <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-sm font-bold">{count}</span>
+              <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-sm font-semibold">{count}</span>
               <span className="flex-1 text-left font-semibold">View cart & checkout</span>
-              <span className="text-lg font-bold">{peso(total)}</span>
+              <span className="text-lg font-semibold">{peso(total)}</span>
             </button>
           </div>
         </div>
@@ -202,20 +200,28 @@ function ProductTile({ p, inCart, onAdd, onRemove }) {
       onContextMenu={(e) => e.preventDefault()}
       style={{ WebkitTouchCallout: 'none' }}
       className={cx(
-        'relative flex min-h-[96px] select-none flex-col rounded-2xl bg-white p-3 text-left shadow-sm ring-1 transition active:scale-[.97]',
+        'relative flex min-h-[96px] select-none flex-col rounded-2xl bg-white p-3 text-left ring-1 transition active:scale-[.97]',
         inCart ? 'ring-2 ring-brand-600' : 'ring-brand-100',
         out && 'opacity-50',
       )}
     >
       {inCart > 0 && (
-        <span className="absolute -right-1.5 -top-1.5 flex h-7 min-w-7 items-center justify-center rounded-full bg-brand-700 px-1.5 text-sm font-bold text-white shadow">
+        <span className="absolute -right-1.5 -top-1.5 flex h-7 min-w-7 items-center justify-center rounded-full bg-brand-700 px-1.5 text-sm font-semibold text-white ring-2 ring-brand-50">
           {inCart}
         </span>
       )}
-      <span className="line-clamp-2 font-semibold leading-snug text-brand-900">{p.name}</span>
-      <span className="mt-auto flex items-end justify-between gap-1 pt-2">
-        <span className="text-lg font-bold text-brand-700">{peso(p.price)}</span>
-        <Badge tone={out ? 'out' : low ? 'low' : 'neutral'}>{out ? 'Out' : `${p.stock} left`}</Badge>
+      <span className="line-clamp-2 text-[15px] font-medium leading-snug text-brand-900">{p.name}</span>
+      <span className="mt-auto pt-3">
+        <span className="block text-xl font-semibold tracking-tight tabular-nums text-brand-900">{peso(p.price)}</span>
+        <span
+          className={cx(
+            'mt-0.5 flex items-center gap-1.5 text-xs',
+            out ? 'text-red-600' : low ? 'text-amber-700' : 'text-brand-900/50',
+          )}
+        >
+          <span className={cx('h-1.5 w-1.5 rounded-full', out ? 'bg-red-400' : low ? 'bg-amber-400' : 'bg-emerald-400')} />
+          {out ? 'Out of stock' : `${p.stock} in stock`}
+        </span>
       </span>
     </button>
   )
@@ -255,12 +261,12 @@ function Checkout({ open, onClose, lines, total, onAdd, onClear, onConfirm }) {
         <div className="space-y-2 pb-2">
           <div className="flex items-center justify-between">
             <span className="text-brand-900/70">Total</span>
-            <span className="text-2xl font-bold text-brand-900">{peso(total)}</span>
+            <span className="text-2xl font-semibold text-brand-900">{peso(total)}</span>
           </div>
           {payment === 'cash' && cashNum >= total && (
             <div className="flex items-center justify-between rounded-xl bg-emerald-50 px-3 py-2">
               <span className="font-semibold text-emerald-800">Change (sukli)</span>
-              <span className="text-2xl font-bold text-emerald-700">{peso(change)}</span>
+              <span className="text-2xl font-semibold text-emerald-700">{peso(change)}</span>
             </div>
           )}
           {payment === 'cash' && cashNum < total && (
@@ -303,7 +309,7 @@ function Checkout({ open, onClose, lines, total, onAdd, onClear, onConfirm }) {
             >
               <Icon name="minus" size={16} />
             </button>
-            <span className="w-7 text-center font-bold">{qty}</span>
+            <span className="w-7 text-center font-semibold">{qty}</span>
             <button
               onClick={() => onAdd(product, 1)}
               className="rounded-lg bg-white p-2 text-brand-700 ring-1 ring-brand-200"
@@ -313,12 +319,12 @@ function Checkout({ open, onClose, lines, total, onAdd, onClear, onConfirm }) {
             </button>
           </div>
         ))}
-        <button onClick={onClear} className="text-sm font-medium text-red-600">
+        <button onClick={onClear} className="text-sm font-medium text-[#b5524a]">
           Clear cart
         </button>
       </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-2 rounded-2xl bg-brand-100 p-1">
+      <div className="mt-5 grid grid-cols-2 gap-2 rounded-xl bg-brand-100 p-1">
         {[
           ['cash', 'Cash'],
           ['utang', 'Utang (credit)'],
@@ -328,7 +334,7 @@ function Checkout({ open, onClose, lines, total, onAdd, onClear, onConfirm }) {
             onClick={() => setPayment(k)}
             className={cx(
               'rounded-xl py-2.5 font-semibold',
-              payment === k ? 'bg-white text-brand-800 shadow' : 'text-brand-800/60',
+              payment === k ? 'bg-white text-brand-900 ring-1 ring-brand-200' : 'text-brand-800/60',
             )}
           >
             {l}
@@ -373,7 +379,7 @@ function Checkout({ open, onClose, lines, total, onAdd, onClear, onConfirm }) {
           </Field>
           <div className="flex items-center justify-between rounded-xl bg-amber-50 px-3 py-2">
             <span className="font-semibold text-amber-900">Added to utang</span>
-            <span className="text-xl font-bold text-amber-800">{peso(credit)}</span>
+            <span className="text-xl font-semibold text-amber-800">{peso(credit)}</span>
           </div>
         </div>
       )}
@@ -409,7 +415,7 @@ function CustomerPicker({ value, onChange }) {
       <Field label="Customer">
         <SearchBox value={text} onChange={setText} placeholder="Search or type a new name…" />
       </Field>
-      <div className="divide-y divide-brand-100 overflow-hidden rounded-xl ring-1 ring-brand-100">
+      <div className="divide-y divide-brand-200/60 overflow-hidden rounded-xl ring-1 ring-brand-200/70">
         {matches.map((c) => (
           <button
             key={c.id}
@@ -460,16 +466,16 @@ function Receipt({ sale, onClose }) {
         {sale.payment === 'cash' ? (
           <>
             <p className="text-sm text-brand-900/60">Give change</p>
-            <p className="text-4xl font-bold text-emerald-700">{peso(sale.change)}</p>
+            <p className="text-4xl font-semibold text-emerald-700">{peso(sale.change)}</p>
           </>
         ) : (
           <>
             <p className="text-sm text-brand-900/60">Added to {sale.customerName || 'customer'}'s utang</p>
-            <p className="text-4xl font-bold text-amber-700">{peso(sale.creditAmount)}</p>
+            <p className="text-4xl font-semibold text-amber-700">{peso(sale.creditAmount)}</p>
           </>
         )}
       </div>
-      <div className="mt-5 rounded-2xl bg-brand-50 p-4 font-mono text-sm">
+      <div className="mt-5 rounded-2xl bg-brand-50 p-4 font-mono text-sm tabular-nums">
         <div className="mb-2 flex justify-between text-xs text-brand-900/60">
           <span>#{shortId(sale.id)}</span>
           <span>{fmtDateTime(sale.createdAt)}</span>
@@ -482,7 +488,7 @@ function Receipt({ sale, onClose }) {
             <span>{peso(i.subtotal)}</span>
           </div>
         ))}
-        <div className="mt-2 flex justify-between border-t border-dashed border-brand-300 pt-2 font-bold">
+        <div className="mt-2 flex justify-between border-t border-dashed border-brand-300 pt-2 font-semibold">
           <span>TOTAL</span>
           <span>{peso(sale.total)}</span>
         </div>
