@@ -8,10 +8,21 @@ service cloud.firestore {
 
     function signedIn() { return request.auth != null; }
     function me() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    // True when this session signed in with an authenticator-app code.
+    function usedSecondFactor() {
+      return request.auth.token.firebase.get('sign_in_second_factor', null) != null;
+    }
+    // The owner can require 2-step verification for everyone (meta/security).
+    function twoStepOk() {
+      return !exists(/databases/$(database)/documents/meta/security)
+        || get(/databases/$(database)/documents/meta/security).data.get('require2fa', false) != true
+        || usedSecondFactor();
+    }
     function isStaff() {
       return signedIn()
         && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && me().active == true;
+        && me().active == true
+        && twoStepOk();
     }
     function isOwner() { return isStaff() && me().role == 'owner'; }
     function changedOnly(keys) {
@@ -28,6 +39,15 @@ service cloud.firestore {
       allow read: if true;
       allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid;
       allow update, delete: if false;
+    }
+
+    match /meta/security {
+      allow read: if true;
+      // Only an owner who signed in with a code can change it, so a stolen
+      // password alone can't switch 2-step off.
+      allow write: if isOwner() && usedSecondFactor()
+        && request.resource.data.keys().hasOnly(['require2fa', 'updatedAt', 'by'])
+        && request.resource.data.require2fa is bool;
     }
 
     match /users/{uid} {

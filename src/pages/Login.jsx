@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import {
+  TotpMultiFactorGenerator,
   createUserWithEmailAndPassword,
+  getMultiFactorResolver,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
@@ -10,6 +12,7 @@ import { doc, serverTimestamp, writeBatch } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import { useLive } from '../lib/data'
 import { Button, Field, Input, useToast } from '../components/ui'
+import { CodeInput } from './TwoStep'
 
 const authError = (e) => {
   const code = e?.code || ''
@@ -50,6 +53,8 @@ function SignInForm() {
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [resolver, setResolver] = useState(null)
+  const [code, setCode] = useState('')
 
   const submit = async (e) => {
     e.preventDefault()
@@ -58,10 +63,63 @@ function SignInForm() {
     try {
       await signInWithEmailAndPassword(auth, email.trim(), password)
     } catch (err) {
-      setError(authError(err))
+      if (err?.code === 'auth/multi-factor-auth-required') {
+        setResolver(getMultiFactorResolver(auth, err))
+        setCode('')
+      } else setError(authError(err))
     } finally {
       setBusy(false)
     }
+  }
+
+  const submitCode = async (e) => {
+    e.preventDefault()
+    const hint = resolver.hints.find((h) => h.factorId === TotpMultiFactorGenerator.FACTOR_ID)
+    if (!hint) return setError('This account has no authenticator app set up.')
+    setBusy(true)
+    setError('')
+    try {
+      await resolver.resolveSignIn(TotpMultiFactorGenerator.assertionForSignIn(hint.uid, code))
+    } catch (err) {
+      const c = err?.code || ''
+      setError(
+        c.includes('invalid-verification-code')
+          ? 'That code is wrong or expired. Check the app and try again.'
+          : c.includes('session-expired') || c.includes('code-expired')
+            ? 'This took too long. Go back and sign in again.'
+            : authError(err),
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (resolver) {
+    return (
+      <form onSubmit={submitCode} className="space-y-4">
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight">Enter your code</h2>
+          <p className="text-sm text-brand-900/60">
+            Open your authenticator app and type the 6-digit code for JacqueNgel POS.
+          </p>
+        </div>
+        <CodeInput value={code} onChange={setCode} autoFocus />
+        {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+        <Button type="submit" size="lg" className="w-full" disabled={busy || code.length !== 6}>
+          {busy ? 'Checking…' : 'Sign in'}
+        </Button>
+        <button
+          type="button"
+          onClick={() => {
+            setResolver(null)
+            setError('')
+          }}
+          className="w-full text-center text-sm font-medium text-brand-600"
+        >
+          Back
+        </button>
+      </form>
+    )
   }
 
   const reset = async () => {

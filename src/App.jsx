@@ -5,6 +5,7 @@ import { auth, db } from './firebase'
 import { SessionContext, useLive } from './lib/data'
 import { Button, Icon, cx } from './components/ui'
 import Login from './pages/Login'
+import { TwoStepGate, usedSecondFactor } from './pages/TwoStep'
 import AuthAction from './pages/AuthAction'
 import Sell from './pages/Sell'
 import Inventory from './pages/Inventory'
@@ -48,6 +49,24 @@ function Main() {
 
   if (user === undefined) return <Splash />
   if (!user) return <Login />
+  return <SecurityGate user={user} />
+}
+
+/** When the owner requires 2-step verification, sessions without it stop here. */
+function SecurityGate({ user }) {
+  const security = useLive(doc(db, 'meta', 'security'), [])
+  const [second, setSecond] = useState(null)
+  useEffect(() => {
+    let live = true
+    usedSecondFactor(user).then((v) => live && setSecond(v))
+    return () => {
+      live = false
+    }
+  }, [user])
+  const required = security.data?.require2fa === true
+  if (security.loading && security.data === undefined) return <Splash />
+  if (required && second === null) return <Splash />
+  if (required && !second) return <TwoStepGate user={user} />
   return <SignedIn user={user} />
 }
 

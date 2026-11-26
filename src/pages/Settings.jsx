@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createUserWithEmailAndPassword, sendPasswordResetEmail, signOut, updateProfile } from 'firebase/auth'
 import { collection, doc, orderBy, query, serverTimestamp, setDoc, updateDoc, where } from 'firebase/firestore'
 import { auth, db, getSecondaryAuth } from '../firebase'
+import { TwoStepSetup, isEnrolled, usedSecondFactor } from './TwoStep'
 import { useLive, useSession } from '../lib/data'
 import { peso, r2, startOfManilaDay } from '../lib/format'
 import { Badge, Button, Field, Icon, Input, Modal, cx, useConfirm, useToast } from '../components/ui'
@@ -18,6 +19,7 @@ export default function Settings() {
       ) : (
         <MySalesToday />
       )}
+      <TwoStepSection />
       <Account />
     </div>
   )
@@ -278,6 +280,89 @@ function MySalesToday() {
           <p className="font-semibold text-emerald-700">{peso(total - credit)}</p>
         </div>
       </div>
+    </Section>
+  )
+}
+
+function TwoStepSection() {
+  const { user, isOwner } = useSession()
+  const toast = useToast()
+  const [confirm, confirmDialog] = useConfirm()
+  const security = useLive(doc(db, 'meta', 'security'), []).data
+  const required = security?.require2fa === true
+  const [open, setOpen] = useState(false)
+  const [second, setSecond] = useState(false)
+  useEffect(() => {
+    usedSecondFactor(user).then(setSecond)
+  }, [user])
+  const enrolled = isEnrolled(user)
+
+  const setRequired = async (on) => {
+    const ok = await confirm(
+      on
+        ? {
+            title: 'Require 2-step for everyone?',
+            message:
+              'Every owner and cashier will need an authenticator-app code to sign in. Anyone who hasn’t set it up will be asked to do it at their next use. Their email must be real, because they’ll need to verify it first.',
+            confirmText: 'Require it',
+          }
+        : {
+            title: 'Stop requiring 2-step?',
+            message: 'People will be able to sign in with just their password again.',
+            confirmText: 'Stop requiring',
+            danger: true,
+          },
+    )
+    if (!ok) return
+    setDoc(doc(db, 'meta', 'security'), { require2fa: on, updatedAt: serverTimestamp(), by: user.uid })
+      .then(() => toast(on ? '2-step is now required for everyone' : '2-step is no longer required'))
+      .catch((err) => toast(`Could not change it: ${err.code}`, 'error'))
+  }
+
+  return (
+    <Section title="2-step verification">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-brand-900/70">
+          {enrolled
+            ? 'On for your account. You sign in with your password and a code from your authenticator app.'
+            : 'Off for your account. Add a code from an authenticator app so a stolen password isn’t enough to sign in.'}
+        </p>
+        <Badge tone={enrolled ? 'ok' : 'low'}>{enrolled ? 'On' : 'Off'}</Badge>
+      </div>
+      {!enrolled && (
+        <Button className="mt-3 w-full" onClick={() => setOpen(true)}>
+          Set up 2-step verification
+        </Button>
+      )}
+      {isOwner && (
+        <div className="mt-4 border-t border-brand-200/70 pt-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm">
+              <span className="block font-medium">Require for everyone</span>
+              <span className="text-brand-900/60">
+                {required ? 'Everyone must use a code to sign in.' : 'Currently optional.'}
+              </span>
+            </p>
+            <Button
+              size="sm"
+              variant={required ? 'outline' : 'primary'}
+              disabled={!second}
+              onClick={() => setRequired(!required)}
+            >
+              {required ? 'Turn off' : 'Turn on'}
+            </Button>
+          </div>
+          {!second && (
+            <p className="mt-2 text-xs text-brand-900/50">
+              To change this, first set up 2-step for yourself and sign in with a code.
+            </p>
+          )}
+        </div>
+      )}
+      <Modal open={open} onClose={() => setOpen(false)} title="2-step verification">
+        <TwoStepSetup user={user} onCancel={() => setOpen(false)} />
+      </Modal>
+      {confirmDialog}
     </Section>
   )
 }
