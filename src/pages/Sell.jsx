@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { collection, orderBy, query } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useLive, useSession } from '../lib/data'
@@ -59,6 +59,17 @@ export default function Sell({ products }) {
     })
   }
 
+  const remove = (p) => {
+    if (!cart[p.id]) return
+    setCart((c) => {
+      const copy = { ...c }
+      delete copy[p.id]
+      return copy
+    })
+    navigator.vibrate?.(40)
+    toast(`Removed ${p.name} from cart`)
+  }
+
   const onCheckout = (opts) => {
     const { sale, done } = createSale({ cart: lines, session, ...opts })
     done.catch((e) => {
@@ -99,36 +110,16 @@ export default function Sell({ products }) {
       ) : shown.length === 0 ? (
         <Empty icon="search" title="No match" />
       ) : (
-        <div className="grid grid-cols-2 gap-2.5 px-4 pt-1 sm:grid-cols-3">
-          {shown.map((p) => {
-            const inCart = cart[p.id] || 0
-            const out = (p.stock || 0) <= 0
-            const low = !out && p.stock <= (p.lowStock || 0)
-            return (
-              <button
-                key={p.id}
-                disabled={out}
-                onClick={() => add(p)}
-                className={cx(
-                  'relative flex min-h-[96px] flex-col rounded-2xl bg-white p-3 text-left shadow-sm ring-1 transition active:scale-[.97]',
-                  inCart ? 'ring-2 ring-brand-600' : 'ring-brand-100',
-                  out && 'opacity-50',
-                )}
-              >
-                {inCart > 0 && (
-                  <span className="absolute -right-1.5 -top-1.5 flex h-7 min-w-7 items-center justify-center rounded-full bg-brand-700 px-1.5 text-sm font-bold text-white shadow">
-                    {inCart}
-                  </span>
-                )}
-                <span className="line-clamp-2 font-semibold leading-snug text-brand-900">{p.name}</span>
-                <span className="mt-auto flex items-end justify-between gap-1 pt-2">
-                  <span className="text-lg font-bold text-brand-700">{peso(p.price)}</span>
-                  <Badge tone={out ? 'out' : low ? 'low' : 'neutral'}>{out ? 'Out' : `${p.stock} left`}</Badge>
-                </span>
-              </button>
-            )
-          })}
-        </div>
+        <>
+          {count > 0 && (
+            <p className="px-4 pb-1 text-xs text-brand-900/50">Tap to add · press and hold to remove from cart</p>
+          )}
+          <div className="grid grid-cols-2 gap-2.5 px-4 pt-1 sm:grid-cols-3">
+            {shown.map((p) => (
+              <ProductTile key={p.id} p={p} inCart={cart[p.id] || 0} onAdd={() => add(p)} onRemove={() => remove(p)} />
+            ))}
+          </div>
+        </>
       )}
 
       {count > 0 && (
@@ -160,6 +151,73 @@ export default function Sell({ products }) {
       />
       <Receipt sale={receipt} onClose={() => setReceipt(null)} />
     </div>
+  )
+}
+
+const HOLD_MS = 500
+
+/** Tap = add one. Press and hold = remove the item from the cart. */
+function ProductTile({ p, inCart, onAdd, onRemove }) {
+  const timer = useRef(null)
+  const held = useRef(false)
+  const start = useRef(null)
+  const out = (p.stock || 0) <= 0
+  const low = !out && p.stock <= (p.lowStock || 0)
+
+  const cancel = () => {
+    clearTimeout(timer.current)
+    timer.current = null
+  }
+  const onPointerDown = (e) => {
+    held.current = false
+    start.current = { x: e.clientX, y: e.clientY }
+    if (!inCart) return
+    timer.current = setTimeout(() => {
+      held.current = true
+      timer.current = null
+      onRemove()
+    }, HOLD_MS)
+  }
+  const onPointerMove = (e) => {
+    if (!timer.current || !start.current) return
+    if (Math.abs(e.clientX - start.current.x) > 10 || Math.abs(e.clientY - start.current.y) > 10) cancel()
+  }
+  const onClick = () => {
+    if (held.current) {
+      held.current = false
+      return
+    }
+    onAdd()
+  }
+
+  return (
+    <button
+      disabled={out && !inCart}
+      onClick={onClick}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={cancel}
+      onPointerLeave={cancel}
+      onPointerCancel={cancel}
+      onContextMenu={(e) => e.preventDefault()}
+      style={{ WebkitTouchCallout: 'none' }}
+      className={cx(
+        'relative flex min-h-[96px] select-none flex-col rounded-2xl bg-white p-3 text-left shadow-sm ring-1 transition active:scale-[.97]',
+        inCart ? 'ring-2 ring-brand-600' : 'ring-brand-100',
+        out && 'opacity-50',
+      )}
+    >
+      {inCart > 0 && (
+        <span className="absolute -right-1.5 -top-1.5 flex h-7 min-w-7 items-center justify-center rounded-full bg-brand-700 px-1.5 text-sm font-bold text-white shadow">
+          {inCart}
+        </span>
+      )}
+      <span className="line-clamp-2 font-semibold leading-snug text-brand-900">{p.name}</span>
+      <span className="mt-auto flex items-end justify-between gap-1 pt-2">
+        <span className="text-lg font-bold text-brand-700">{peso(p.price)}</span>
+        <Badge tone={out ? 'out' : low ? 'low' : 'neutral'}>{out ? 'Out' : `${p.stock} left`}</Badge>
+      </span>
+    </button>
   )
 }
 
