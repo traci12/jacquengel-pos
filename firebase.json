@@ -40,7 +40,8 @@
     ],
     "i18n": {
       "root": "/localized"
-    }
+    },
+    "cleanUrls": true
   },
   "auth": {
     "providers": {

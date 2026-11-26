@@ -37,7 +37,8 @@ function Splash({ children }) {
 }
 
 export default function App() {
-  if (window.location.pathname.startsWith('/auth/action')) return <AuthAction />
+  const qs = new URLSearchParams(window.location.search)
+  if (window.location.pathname.startsWith('/auth/action') || (qs.get('mode') && qs.get('oobCode'))) return <AuthAction />
   return <Main />
 }
 

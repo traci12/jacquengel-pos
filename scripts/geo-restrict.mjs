@@ -17,6 +17,11 @@ rmSync(appDir, { recursive: true, force: true })
 mkdirSync(appDir)
 for (const f of readdirSync(dist)) if (f !== '_app') renameSync(join(dist, f), join(appDir, f))
 
+// 1b. Country folders don't apply to rewrites, so pages other than "/" need
+//     a real file. /auth/action (password reset links) gets a copy of the app.
+mkdirSync(join(appDir, 'auth'), { recursive: true })
+copyFileSync(join(appDir, 'index.html'), join(appDir, 'auth', 'action.html'))
+
 // 2. Put a copy of the app in each allowed country's folder.
 for (const cc of ALLOWED) cpSync(appDir, join(dist, 'localized', `ALL_${cc}`), { recursive: true })
 
