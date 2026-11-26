@@ -273,7 +273,7 @@ function ProductTile({ p, inCart, onAdd, onRemove }) {
           src={p.image}
           alt=""
           draggable={false}
-          className="pointer-events-none mx-auto mb-2 h-[125px] w-[125px] rounded-xl object-cover"
+          className="pointer-events-none -mx-3 -mt-3 mb-2.5 aspect-square w-[calc(100%+1.5rem)] max-w-none rounded-t-2xl object-cover"
         />
       )}
       <span className="line-clamp-2 text-[15px] font-medium leading-snug text-brand-900">{p.name}</span>
