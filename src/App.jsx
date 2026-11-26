@@ -5,6 +5,7 @@ import { auth, db } from './firebase'
 import { SessionContext, useLive } from './lib/data'
 import { Button, Icon, cx } from './components/ui'
 import Login from './pages/Login'
+import AuthAction from './pages/AuthAction'
 import Sell from './pages/Sell'
 import Inventory from './pages/Inventory'
 import Utang from './pages/Utang'
@@ -36,6 +37,11 @@ function Splash({ children }) {
 }
 
 export default function App() {
+  if (window.location.pathname.startsWith('/auth/action')) return <AuthAction />
+  return <Main />
+}
+
+function Main() {
   const [user, setUser] = useState(undefined)
   useEffect(() => onAuthStateChanged(auth, setUser), [])
 
