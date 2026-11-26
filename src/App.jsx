@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
-import { collection, doc, orderBy, query } from 'firebase/firestore'
+import { collection, doc, orderBy, query, serverTimestamp, setDoc } from 'firebase/firestore'
 import { auth, db } from './firebase'
 import { SessionContext, useLive } from './lib/data'
 import { Button, Icon, cx } from './components/ui'
@@ -56,21 +56,48 @@ function SignedIn({ user }) {
   const active = profile?.active === true
 
   if (profileQ.loading && profile === undefined) return <Splash />
-  if (!active) {
-    return (
-      <Splash>
-        <p className="max-w-xs text-brand-900/80">
-          {profile
-            ? 'This account has been deactivated. Ask the store owner to turn it back on.'
-            : 'This account is not linked to the store yet. Ask the store owner to add you as staff.'}
-        </p>
-        <Button variant="outline" onClick={() => signOut(auth)}>
-          <Icon name="logout" /> Sign out
-        </Button>
-      </Splash>
-    )
-  }
+  if (!active) return <NoAccess user={user} profile={profile} />
   return <Shell user={user} profile={profile} />
+}
+
+function NoAccess({ user, profile }) {
+  const [busy, setBusy] = useState(false)
+  const request = async () => {
+    setBusy(true)
+    try {
+      await setDoc(doc(db, 'users', user.uid), {
+        name: user.displayName || user.email.split('@')[0],
+        email: user.email.toLowerCase(),
+        role: 'cashier',
+        active: false,
+        requested: true,
+        createdAt: serverTimestamp(),
+      })
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <Splash>
+      <p className="max-w-xs text-brand-900/80">
+        {profile?.requested
+          ? `Request sent. Ask the store owner to open Settings → Staff and tap “Activate” next to ${user.email}.`
+          : profile
+            ? 'This account has been deactivated. Ask the store owner to turn it back on.'
+            : `${user.email} is not linked to the store yet.`}
+      </p>
+      {!profile && (
+        <Button onClick={request} disabled={busy}>
+          Request access
+        </Button>
+      )}
+      <Button variant="outline" onClick={() => signOut(auth)}>
+        <Icon name="logout" /> Sign out
+      </Button>
+    </Splash>
+  )
 }
 
 function Shell({ user, profile }) {

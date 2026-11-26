@@ -74,6 +74,27 @@ function Staff() {
   const users = useLive(query(collection(db, 'users'), orderBy('name')), []).data || []
   const [adding, setAdding] = useState(false)
 
+  const setRole = async (u, role) => {
+    const ok = await confirm(
+      role === 'owner'
+        ? {
+            title: `Make ${u.name} an owner?`,
+            message:
+              'Owners have full access: prices, inventory, reports, voiding sales and managing staff (including you).',
+            confirmText: 'Make owner',
+          }
+        : {
+            title: `Change ${u.name} to cashier?`,
+            message: 'They will only be able to sell, record utang payments and view stock.',
+            confirmText: 'Make cashier',
+          },
+    )
+    if (!ok) return
+    updateDoc(doc(db, 'users', u.id), { role, updatedAt: serverTimestamp() })
+      .then(() => toast(`${u.name} is now ${role === 'owner' ? 'an owner' : 'a cashier'}`))
+      .catch((err) => toast(`Update failed: ${err.code}`, 'error'))
+  }
+
   const toggle = async (u) => {
     if (u.active) {
       const ok = await confirm({
@@ -84,7 +105,7 @@ function Staff() {
       })
       if (!ok) return
     }
-    updateDoc(doc(db, 'users', u.id), { active: !u.active, updatedAt: serverTimestamp() }).catch((err) =>
+    updateDoc(doc(db, 'users', u.id), { active: !u.active, requested: false, updatedAt: serverTimestamp() }).catch((err) =>
       toast(`Update failed: ${err.code}`, 'error'),
     )
   }
@@ -94,35 +115,54 @@ function Staff() {
       title="Staff"
       action={
         <Button size="sm" variant="secondary" onClick={() => setAdding(true)}>
-          <Icon name="plus" size={16} /> Cashier
+          <Icon name="plus" size={16} /> Staff
         </Button>
       }
     >
       <div className="divide-y divide-brand-100">
         {users.map((u) => (
-          <div key={u.id} className="flex items-center gap-3 py-2.5">
-            <div className="min-w-0 flex-1">
-              <p className={cx('truncate font-semibold', !u.active && 'text-brand-900/40 line-through')}>{u.name}</p>
-              <p className="truncate text-xs text-brand-900/50">{u.email}</p>
+          <div key={u.id} className="py-2.5">
+            <div className="flex items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <p
+                  className={cx(
+                    'truncate font-semibold',
+                    !u.active && !u.requested && 'text-brand-900/40 line-through',
+                  )}
+                >
+                  {u.name}
+                  {u.id === session.user.uid && <span className="font-normal text-brand-900/50"> (you)</span>}
+                </p>
+                <p className="truncate text-xs text-brand-900/50">{u.email}</p>
+              </div>
+              {u.requested && !u.active ? (
+                <Badge tone="low">Wants access</Badge>
+              ) : (
+                <Badge tone={u.role === 'owner' ? 'info' : 'neutral'}>{u.role === 'owner' ? 'Owner' : 'Cashier'}</Badge>
+              )}
             </div>
-            <Badge tone={u.role === 'owner' ? 'info' : 'neutral'}>{u.role === 'owner' ? 'Owner' : 'Cashier'}</Badge>
             {u.id !== session.user.uid && (
-              <Button size="sm" variant={u.active ? 'outline' : 'success'} onClick={() => toggle(u)}>
-                {u.active ? 'Deactivate' : 'Activate'}
-              </Button>
+              <div className="mt-2 flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => setRole(u, u.role === 'owner' ? 'cashier' : 'owner')}>
+                  {u.role === 'owner' ? 'Make cashier' : 'Make owner'}
+                </Button>
+                <Button size="sm" variant={u.active ? 'outline' : 'success'} onClick={() => toggle(u)}>
+                  {u.active ? 'Deactivate' : 'Activate'}
+                </Button>
+              </div>
             )}
           </div>
         ))}
       </div>
-      {adding && <AddCashier onClose={() => setAdding(false)} />}
+      {adding && <AddStaff onClose={() => setAdding(false)} />}
       {confirmDialog}
     </Section>
   )
 }
 
-function AddCashier({ onClose }) {
+function AddStaff({ onClose }) {
   const toast = useToast()
-  const [f, setF] = useState({ name: '', email: '', password: '' })
+  const [f, setF] = useState({ name: '', email: '', password: '', role: 'cashier' })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
@@ -138,12 +178,12 @@ function AddCashier({ onClose }) {
       await setDoc(doc(db, 'users', cred.user.uid), {
         name: f.name.trim(),
         email: f.email.trim().toLowerCase(),
-        role: 'cashier',
+        role: f.role,
         active: true,
         createdAt: serverTimestamp(),
       })
       await signOut(secondary)
-      toast(`${f.name.trim()} can now sign in as cashier`)
+      toast(`${f.name.trim()} can now sign in as ${f.role === 'owner' ? 'owner' : 'cashier'}`)
       onClose()
     } catch (err) {
       console.error(err)
@@ -166,19 +206,38 @@ function AddCashier({ onClose }) {
     <Modal
       open
       onClose={onClose}
-      title="Add cashier"
+      title="Add staff"
       footer={
         <div className="pb-2">
           <Button form="cashier-form" type="submit" size="lg" className="w-full" disabled={busy}>
-            {busy ? 'Creating…' : 'Create cashier account'}
+            {busy ? 'Creating…' : `Create ${f.role} account`}
           </Button>
         </div>
       }
     >
       <form id="cashier-form" onSubmit={submit} className="space-y-3">
+        <div className="grid grid-cols-2 gap-2 rounded-2xl bg-brand-100 p-1">
+          {[
+            ['cashier', 'Cashier'],
+            ['owner', 'Owner'],
+          ].map(([k, l]) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setF({ ...f, role: k })}
+              className={cx(
+                'rounded-xl py-2 font-semibold',
+                f.role === k ? 'bg-white text-brand-800 shadow' : 'text-brand-800/60',
+              )}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
         <p className="text-sm text-brand-900/70">
-          Cashiers can sell, record utang payments and view stock. They can’t change prices, edit inventory or see
-          reports.
+          {f.role === 'owner'
+            ? 'Owners have full access: prices, inventory, reports, voiding sales and managing staff.'
+            : 'Cashiers can sell, record utang payments and view stock. They can’t change prices, edit inventory or see reports.'}
         </p>
         <Field label="Name">
           <Input value={f.name} onChange={set('name')} required autoFocus />
@@ -186,7 +245,7 @@ function AddCashier({ onClose }) {
         <Field label="Email (used to sign in)">
           <Input type="email" value={f.email} onChange={set('email')} required />
         </Field>
-        <Field label="Temporary password" hint="At least 6 characters. Share it with the cashier.">
+        <Field label="Temporary password" hint="At least 6 characters. Share it with them; they can change it with “Forgot password”.">
           <Input type="text" value={f.password} onChange={set('password')} minLength={6} required />
         </Field>
         {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}

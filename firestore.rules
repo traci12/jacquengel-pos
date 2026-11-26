@@ -33,7 +33,12 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if (signedIn() && request.auth.uid == uid) || isOwner();
       allow create: if isOwner()
-        || (request.auth.uid == uid && request.resource.data.role == 'owner' && bootstrapping());
+        || (request.auth.uid == uid && request.resource.data.role == 'owner' && bootstrapping())
+        // A signed-in person without access may ask for it; the owner must activate them.
+        || (signedIn() && request.auth.uid == uid
+            && request.resource.data.role == 'cashier'
+            && request.resource.data.active == false
+            && request.resource.data.requested == true);
       allow update: if isOwner();
       allow delete: if false;
     }
