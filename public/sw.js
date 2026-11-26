@@ -3,8 +3,10 @@
  * - Lets the app open with no signal: the page and its files are cached.
  * Store data (products, sales, utang) is cached separately by Firestore.
  */
-const CACHE = 'jn-pos-v2'
-const SHELL = ['/', '/manifest.webmanifest', '/logo-192.png', '/logo-512.png', '/favicon.png']
+const CACHE = 'jn-pos-v3'
+// The manifest is never cached here: phones must always read the latest one
+// (e.g. screen orientation) when the app is installed.
+const SHELL = ['/', '/logo-192.png', '/logo-512.png', '/favicon.png']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)))
