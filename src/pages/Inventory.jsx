@@ -501,6 +501,14 @@ function StarterImport({ existing, onClose }) {
             Popular Pinoy snacks and drinks with typical 2026 sari-sari prices, plus your JacqueNgel cafe menu. Untick
             what you don’t sell. You can edit any price afterwards.
           </p>
+          <div className="mb-3 flex gap-2">
+            <button className="chip" onClick={() => toggle(available.map((p) => p.name), true)}>
+              Tick everything
+            </button>
+            <button className="chip" onClick={() => toggle(available.map((p) => p.name), false)}>
+              Untick everything
+            </button>
+          </div>
           {groups.map(([cat, items]) => {
             const all = items.every((p) => picked.has(p.name))
             return (
