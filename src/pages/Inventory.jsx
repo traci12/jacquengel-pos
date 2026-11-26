@@ -5,8 +5,11 @@ import { useLive, useSession } from '../lib/data'
 import { changeStock, importProducts, saveProduct } from '../lib/ops'
 import { STARTER_PRODUCTS } from '../lib/starterProducts'
 import { photoToSquare } from '../lib/image'
-import { CATEGORY_SUGGESTIONS, fmtDateTime, peso, r2, tracksStock } from '../lib/format'
+import { CATEGORY_SUGGESTIONS, fmtDateTime, isCafeCategory, peso, r2, tracksStock } from '../lib/format'
 import { Badge, Button, Empty, Field, Icon, Input, Modal, SearchBox, cx, useConfirm, useToast } from '../components/ui'
+
+const MODE_KEY = 'inventory-mode'
+const isCafe = (p) => isCafeCategory(p.category)
 
 const stockTone = (p) =>
   !tracksStock(p) ? 'none' : (p.stock || 0) <= 0 ? 'out' : p.stock <= (p.lowStock || 0) ? 'low' : 'ok'
@@ -19,16 +22,37 @@ export default function Inventory({ products }) {
   const [category, setCategory] = useState('All')
   const [editing, setEditing] = useState(null) // product | 'new' | null
   const [importing, setImporting] = useState(false)
+  const [mode, setMode] = useState(() => {
+    try {
+      return localStorage.getItem(MODE_KEY) || 'sari'
+    } catch {
+      return 'sari'
+    }
+  })
+  const chooseMode = (m) => {
+    setMode(m)
+    setCategory('All')
+    setFilter('all')
+    setSearch('')
+    try {
+      localStorage.setItem(MODE_KEY, m)
+    } catch {
+      /* ignore */
+    }
+  }
+  const cafeMode = mode === 'cafe'
+  const bizList = useMemo(() => list.filter((p) => (cafeMode ? isCafe(p) : !isCafe(p))), [list, cafeMode])
+  const noCost = bizList.filter((p) => !p.cost).length
 
   const catList = useMemo(
     () =>
-      [...new Map(list.map((p) => [p.category || 'Others', 0])).keys()].sort((a, b) => a.localeCompare(b)),
-    [list],
+      [...new Map(bizList.map((p) => [p.category || 'Others', 0])).keys()].sort((a, b) => a.localeCompare(b)),
+    [bizList],
   )
   const activeCategory = category !== 'All' && !catList.includes(category) ? 'All' : category
   const inCategory = useMemo(
-    () => (activeCategory === 'All' ? list : list.filter((p) => (p.category || 'Others') === activeCategory)),
-    [list, activeCategory],
+    () => (activeCategory === 'All' ? bizList : bizList.filter((p) => (p.category || 'Others') === activeCategory)),
+    [bizList, activeCategory],
   )
 
   const counts = useMemo(
@@ -36,10 +60,10 @@ export default function Inventory({ products }) {
       all: inCategory.length,
       low: inCategory.filter((p) => stockTone(p) === 'low').length,
       out: inCategory.filter((p) => stockTone(p) === 'out').length,
-      costValue: r2(list.filter(tracksStock).reduce((s, p) => s + Math.max(p.stock || 0, 0) * (p.cost || 0), 0)),
-      retailValue: r2(list.filter(tracksStock).reduce((s, p) => s + Math.max(p.stock || 0, 0) * (p.price || 0), 0)),
+      costValue: r2(bizList.filter(tracksStock).reduce((s, p) => s + Math.max(p.stock || 0, 0) * (p.cost || 0), 0)),
+      retailValue: r2(bizList.filter(tracksStock).reduce((s, p) => s + Math.max(p.stock || 0, 0) * (p.price || 0), 0)),
     }),
-    [list, inCategory],
+    [bizList, inCategory],
   )
 
   const shown = useMemo(() => {
@@ -63,14 +87,48 @@ export default function Inventory({ products }) {
 
   return (
     <div className="space-y-3 px-4 pt-3">
-      {isOwner && (
+      <div className="grid grid-cols-2 gap-1 rounded-xl bg-brand-100 p-1">
+        {[
+          ['sari', 'Sari-sari'],
+          ['cafe', 'Cafe'],
+        ].map(([m, label]) => (
+          <button
+            key={m}
+            onClick={() => chooseMode(m)}
+            aria-pressed={mode === m}
+            className={cx(
+              'rounded-lg py-2 text-sm font-semibold',
+              mode === m ? 'bg-white text-brand-900 ring-1 ring-brand-200' : 'text-brand-800/60',
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {isOwner && !cafeMode && (
         <div className="grid grid-cols-2 gap-2">
           <Stat label="Stock value (cost)" value={peso(counts.costValue)} />
           <Stat label="Stock value (retail)" value={peso(counts.retailValue)} />
         </div>
       )}
+      {isOwner && cafeMode && bizList.length > 0 && (
+        <div className="grid grid-cols-2 gap-2">
+          <Stat label="Menu items" value={bizList.length} />
+          <Stat
+            label="Items without a cost"
+            value={noCost}
+            tone={noCost ? 'text-amber-700' : 'text-brand-900'}
+          />
+        </div>
+      )}
 
-      <SearchBox value={search} onChange={setSearch} placeholder="Search inventory…" />
+      <SearchBox
+        value={search}
+        onChange={setSearch}
+        placeholder={cafeMode ? 'Search cafe menu…' : 'Search inventory…'}
+      />
+      {!cafeMode && (
       <div className="flex gap-2">
         {[
           ['all', `All (${counts.all})`],
@@ -96,6 +154,7 @@ export default function Inventory({ products }) {
           </button>
         ))}
       </div>
+      )}
       {catList.length > 1 && (
         <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4">
           {['All', ...catList].map((c) => (
@@ -106,13 +165,17 @@ export default function Inventory({ products }) {
         </div>
       )}
 
-      {list.length === 0 ? (
-        <Empty title="No products yet">
+      {bizList.length === 0 ? (
+        <Empty title={cafeMode ? 'No cafe menu yet' : 'No products yet'}>
           {isOwner ? (
             <div className="space-y-3">
-              <p>Add your products one by one, or start with popular snacks and soft drinks.</p>
+              <p>
+                {cafeMode
+                  ? 'Add your drinks and food one by one, or load the JacqueNgel menu.'
+                  : 'Add your products one by one, or start with popular snacks and soft drinks.'}
+              </p>
               <Button variant="secondary" onClick={() => setImporting(true)}>
-                <Icon name="box" size={18} /> Load starter products
+                <Icon name="box" size={18} /> {cafeMode ? 'Load cafe menu' : 'Load starter products'}
               </Button>
             </div>
           ) : (
@@ -133,8 +196,10 @@ export default function Inventory({ products }) {
               <div className="min-w-0 flex-1">
                 <p className="truncate font-semibold text-brand-900">{p.name}</p>
                 <p className="truncate text-xs text-brand-900/55">
-                  {p.category || 'Others'} · {peso(p.price)}
-                  {isOwner && ` · cost ${peso(p.cost)}`}
+                  {cafeMode ? peso(p.price) : `${p.category || 'Others'}, ${peso(p.price)}`}
+                  {isOwner &&
+                    (p.cost ? `, cost ${peso(p.cost)}` : cafeMode ? '' : `, cost ${peso(0)}`)}
+                  {isOwner && cafeMode && !p.cost && <span className="text-amber-700">, no cost yet</span>}
                 </p>
               </div>
               {!tracksStock(p) ? (
@@ -154,22 +219,23 @@ export default function Inventory({ products }) {
       {isOwner && (
         <div className="fixed bottom-[84px] right-4 z-30 sm:right-[calc(50%-23rem)]">
           <Button size="lg" className="rounded-full ring-4 ring-brand-50" onClick={() => setEditing('new')}>
-            <Icon name="plus" /> Add product
+            <Icon name="plus" /> {cafeMode ? 'Add menu item' : 'Add product'}
           </Button>
         </div>
       )}
 
-      {isOwner && list.length > 0 && (
+      {isOwner && bizList.length > 0 && (
         <button onClick={() => setImporting(true)} className="w-full py-2 text-center text-sm font-medium text-brand-600">
-          + Add from starter product list
+          {cafeMode ? '+ Add from the JacqueNgel menu' : '+ Add from starter product list'}
         </button>
       )}
 
-      {importing && <StarterImport existing={list} onClose={() => setImporting(false)} />}
+      {importing && <StarterImport existing={list} mode={mode} onClose={() => setImporting(false)} />}
 
       {editing && (
         <ProductEditor
           product={editing === 'new' ? null : list.find((p) => p.id === editing.id) || editing}
+          defaults={cafeMode ? { category: 'Cafe', madeToOrder: true, unit: 'cup' } : null}
           categories={categories}
           onClose={() => setEditing(null)}
         />
@@ -187,21 +253,21 @@ function Stat({ label, value, tone }) {
   )
 }
 
-function ProductEditor({ product, categories, onClose }) {
+function ProductEditor({ product, defaults, categories, onClose }) {
   const session = useSession()
   const toast = useToast()
   const [confirm, confirmDialog] = useConfirm()
   const isNew = !product
   const [f, setF] = useState(() => ({
     name: product?.name || '',
-    category: product?.category || '',
+    category: product?.category || defaults?.category || '',
     price: product?.price ?? '',
     cost: product?.cost ?? '',
     stock: '',
     lowStock: product?.lowStock ?? session.store.lowStockDefault ?? 5,
-    unit: product?.unit || 'pc',
+    unit: product?.unit || defaults?.unit || 'pc',
     barcode: product?.barcode || '',
-    madeToOrder: !!product?.madeToOrder,
+    madeToOrder: product ? !!product.madeToOrder : !!defaults?.madeToOrder,
     image: product?.image || '',
   }))
   const [photoBusy, setPhotoBusy] = useState(false)
@@ -254,7 +320,7 @@ function ProductEditor({ product, categories, onClose }) {
     <Modal
       open
       onClose={onClose}
-      title={isNew ? 'Add product' : product.name}
+      title={isNew ? (isCafeCategory(f.category) ? 'Add menu item' : 'Add product') : product.name}
       footer={
         mode === 'details' ? (
           <div className="flex gap-2 pb-2">
@@ -264,7 +330,7 @@ function ProductEditor({ product, categories, onClose }) {
               </Button>
             )}
             <Button form="product-form" type="submit" size="lg" className="flex-1">
-              {isNew ? 'Add product' : 'Save changes'}
+              {isNew ? (isCafeCategory(f.category) ? 'Add menu item' : 'Add product') : 'Save changes'}
             </Button>
           </div>
         ) : null
@@ -320,7 +386,7 @@ function ProductEditor({ product, categories, onClose }) {
             </div>
           </div>
           <Field label="Product name">
-            <Input value={f.name} onChange={set('name')} placeholder="e.g. Coke Mismo 290ml" required autoFocus={isNew} />
+            <Input value={f.name} onChange={set('name')} placeholder={isCafeCategory(f.category) ? 'e.g. Iced Spanish Latte' : 'e.g. Coke Mismo 290ml'} required autoFocus={isNew} />
           </Field>
           <Field label="Category">
             <Input value={f.category} onChange={set('category')} list="cat-list" placeholder="e.g. Beverages" />
@@ -492,12 +558,18 @@ function StockHistory({ productId }) {
   )
 }
 
-function StarterImport({ existing, onClose }) {
+function StarterImport({ existing, mode, onClose }) {
   const session = useSession()
   const toast = useToast()
   const have = useMemo(() => new Set(existing.map((p) => p.name.toLowerCase())), [existing])
   const available = STARTER_PRODUCTS.filter((p) => !have.has(p.name.toLowerCase()))
-  const [picked, setPicked] = useState(() => new Set(available.map((p) => p.name)))
+  // Pre-tick only the items for the side you're on (sari-sari or cafe).
+  const [picked, setPicked] = useState(
+    () =>
+      new Set(
+        available.filter((p) => (mode === 'cafe' ? isCafeCategory(p.category) : !isCafeCategory(p.category))).map((p) => p.name),
+      ),
+  )
   const [stock, setStock] = useState('0')
   const pickedCounted = available.filter((p) => picked.has(p.name) && !p.madeToOrder).length
   const groups = useMemo(() => {
