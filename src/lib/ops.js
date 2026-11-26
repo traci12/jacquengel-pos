@@ -170,6 +170,7 @@ export function saveProduct({ product, data, session }) {
     cost: r2(data.cost),
     lowStock: Number(data.lowStock) || 0,
     barcode: (data.barcode || '').trim(),
+    image: data.image || '',
     unit: (data.unit || 'pc').trim(),
     madeToOrder: !!data.madeToOrder,
     updatedAt: serverTimestamp(),

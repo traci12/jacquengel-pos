@@ -268,6 +268,14 @@ function ProductTile({ p, inCart, onAdd, onRemove }) {
           {inCart}
         </span>
       )}
+      {p.image && (
+        <img
+          src={p.image}
+          alt=""
+          draggable={false}
+          className="pointer-events-none mx-auto mb-2 h-[125px] w-[125px] rounded-xl object-cover"
+        />
+      )}
       <span className="line-clamp-2 text-[15px] font-medium leading-snug text-brand-900">{p.name}</span>
       <span className="mt-auto pt-3">
         <span className="block text-xl font-semibold tracking-tight tabular-nums text-brand-900">{peso(p.price)}</span>
@@ -359,6 +367,7 @@ function Checkout({ open, onClose, lines, total, onAdd, onClear, onConfirm }) {
       <div className="space-y-2">
         {lines.map(({ product, qty }) => (
           <div key={product.id} className="flex items-center gap-2 rounded-xl bg-brand-50 p-2">
+            {product.image && <img src={product.image} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />}
             <div className="min-w-0 flex-1">
               <p className="truncate font-semibold text-brand-900">{product.name}</p>
               <p className="text-xs text-brand-900/60">

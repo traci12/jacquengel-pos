@@ -4,6 +4,7 @@ import { db } from '../firebase'
 import { useLive, useSession } from '../lib/data'
 import { changeStock, importProducts, saveProduct } from '../lib/ops'
 import { STARTER_PRODUCTS } from '../lib/starterProducts'
+import { photoToSquare } from '../lib/image'
 import { CATEGORY_SUGGESTIONS, fmtDateTime, peso, r2, tracksStock } from '../lib/format'
 import { Badge, Button, Empty, Field, Icon, Input, Modal, SearchBox, cx, useConfirm, useToast } from '../components/ui'
 
@@ -128,6 +129,7 @@ export default function Inventory({ products }) {
               onClick={() => isOwner && setEditing(p)}
               className={cx('flex w-full items-center gap-3 px-4 py-3 text-left', isOwner && 'hover:bg-brand-50')}
             >
+              {p.image && <img src={p.image} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />}
               <div className="min-w-0 flex-1">
                 <p className="truncate font-semibold text-brand-900">{p.name}</p>
                 <p className="truncate text-xs text-brand-900/55">
@@ -200,7 +202,24 @@ function ProductEditor({ product, categories, onClose }) {
     unit: product?.unit || 'pc',
     barcode: product?.barcode || '',
     madeToOrder: !!product?.madeToOrder,
+    image: product?.image || '',
   }))
+  const [photoBusy, setPhotoBusy] = useState(false)
+  const pickPhoto = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setPhotoBusy(true)
+    try {
+      const image = await photoToSquare(file)
+      setF((x) => ({ ...x, image }))
+    } catch (err) {
+      console.error(err)
+      toast('Could not read that photo. Try another one.', 'error')
+    } finally {
+      setPhotoBusy(false)
+    }
+  }
   const [mode, setMode] = useState('details') // details | restock | count
   const set = (k) => (e) => {
     const v = e.target.value
@@ -274,6 +293,32 @@ function ProductEditor({ product, categories, onClose }) {
 
       {mode === 'details' && (
         <form id="product-form" onSubmit={save} className="space-y-3">
+          <div className="flex items-center gap-4">
+            <div className="flex h-[125px] w-[125px] shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-brand-100 ring-1 ring-brand-200/70">
+              {f.image ? (
+                <img src={f.image} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <Icon name="camera" size={28} className="text-brand-400" />
+              )}
+            </div>
+            <div className="space-y-2">
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-tint-100 px-3 py-1.5 text-sm font-semibold text-brand-800 hover:bg-tint-200">
+                <Icon name="camera" size={16} />
+                {photoBusy ? 'Loading…' : f.image ? 'Change photo' : 'Add photo'}
+                <input type="file" accept="image/*" className="sr-only" onChange={pickPhoto} disabled={photoBusy} />
+              </label>
+              {f.image && (
+                <button
+                  type="button"
+                  onClick={() => setF({ ...f, image: '' })}
+                  className="block text-sm font-medium text-red-600"
+                >
+                  Remove photo
+                </button>
+              )}
+              <p className="text-xs text-brand-900/50">Optional. Cropped to a square.</p>
+            </div>
+          </div>
           <Field label="Product name">
             <Input value={f.name} onChange={set('name')} placeholder="e.g. Coke Mismo 290ml" required autoFocus={isNew} />
           </Field>
