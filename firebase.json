@@ -37,7 +37,10 @@
           }
         ]
       }
-    ]
+    ],
+    "i18n": {
+      "root": "/localized"
+    }
   },
   "auth": {
     "providers": {
